@@ -1,12 +1,12 @@
-// LITTLE DAY 공간 전환 및 출입 처리 시스템 (마을 <-> 플레이어 별장)
+// LITTLE DAY 공간 전환 및 출입 처리 시스템 (마을 <-> 플레이어 별장 <-> 속삭이는 숲)
 import * as THREE from 'three';
 
 export function createSpaceManager(sceneData, player, followCamera) {
-  let currentSpace = 'village'; // 'village' | 'cottage'
+  let currentSpace = 'village'; // 'village' | 'cottage' | 'forest'
   let isTransitioning = false;
   const listeners = new Set();
 
-  const { village, cottage, boundaryRadius } = sceneData;
+  const { village, cottage, forest, boundaryRadius } = sceneData;
 
   // 페이드 전환 오버레이 DOM 생성
   const fadeOverlay = document.createElement('div');
@@ -60,11 +60,15 @@ export function createSpaceManager(sceneData, player, followCamera) {
     },
     // 현재 활성화된 공간의 충돌체 목록
     getActiveColliders() {
-      return currentSpace === 'cottage' ? cottage.colliders : village.colliders;
+      if (currentSpace === 'cottage') return cottage.colliders;
+      if (currentSpace === 'forest') return forest ? forest.colliders : [];
+      return village.colliders;
     },
     // 현재 활성화된 공간의 이동 제한 경계 (원형 숫자 또는 사각 박스)
     getActiveBoundary() {
-      return currentSpace === 'cottage' ? cottage.boundaryBox : boundaryRadius;
+      if (currentSpace === 'cottage') return cottage.boundaryBox;
+      if (currentSpace === 'forest') return (forest && forest.boundaryRadius) || 30.0;
+      return boundaryRadius;
     },
     // 별장 실내 입장
     async enterCottage(onDone = null) {
@@ -140,6 +144,84 @@ export function createSpaceManager(sceneData, player, followCamera) {
         if (onDone) onDone();
       } finally {
         // 5. 화면 페이드인
+        await fade(false);
+        isTransitioning = false;
+      }
+    },
+    // 속삭이는 숲 입장
+    async enterForest(onDone = null) {
+      if (isTransitioning || currentSpace === 'forest' || !forest) return;
+      isTransitioning = true;
+
+      try {
+        // 1. 화면 암전 페이드아웃
+        await fade(true);
+
+        // 2. 월드 씬 가시성 교체 (마을 숨김, 숲 활성화)
+        village.group.visible = false;
+        cottage.group.visible = false;
+        forest.group.visible = true;
+        currentSpace = 'forest';
+
+        // 3. 플레이어 숲 진입로 스폰 위치로 이동 (북쪽 숲 내부를 바라봄)
+        player.position.copy(forest.spawnPos);
+        player.rotation.y = 0; // 북쪽 방향
+
+        // 4. 카메라 시선 부드럽게 조정 및 스냅
+        if (followCamera) {
+          if (typeof followCamera.setOrientation === 'function') {
+            followCamera.setOrientation(0, 0.32);
+          } else {
+            followCamera.yaw = 0;
+            followCamera.pitch = 0.32;
+          }
+          if (typeof followCamera.snap === 'function') {
+            followCamera.snap(player.position);
+          }
+        }
+
+        notify(currentSpace);
+        if (onDone) onDone();
+      } finally {
+        await fade(false);
+        isTransitioning = false;
+      }
+    },
+    // 속삭이는 숲에서 마을로 나가기
+    async exitForest(onDone = null) {
+      if (isTransitioning || currentSpace === 'village') return;
+      isTransitioning = true;
+
+      try {
+        // 1. 화면 암전 페이드아웃
+        await fade(true);
+
+        // 2. 월드 씬 가시성 교체 (숲 숨김, 마을 활성화)
+        if (forest) forest.group.visible = false;
+        cottage.group.visible = false;
+        village.group.visible = true;
+        currentSpace = 'village';
+
+        // 3. 플레이어 마을 숲 입구 앞 복귀 위치로 이동 (마을 광장을 바라봄)
+        player.position.copy(village.forestEntrance.returnPos);
+        player.rotation.y = village.forestEntrance.returnYaw;
+
+        // 4. 카메라 재조정 및 스냅
+        if (followCamera) {
+          if (typeof followCamera.setOrientation === 'function') {
+            followCamera.setOrientation(player.rotation.y, 0.32);
+          } else {
+            followCamera.yaw = player.rotation.y;
+            followCamera.pitch = 0.32;
+          }
+          if (typeof followCamera.snap === 'function') {
+            followCamera.snap(player.position);
+          }
+        }
+
+        notify(currentSpace);
+        if (onDone) onDone();
+      } finally {
         await fade(false);
         isTransitioning = false;
       }

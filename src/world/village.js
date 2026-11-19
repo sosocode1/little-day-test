@@ -89,6 +89,7 @@ export function createVillage() {
   const dist = (p) => Math.hypot(p[0], p[1]);
   group.add(createPathSegment([0, 26], [0, PLAZA_RADIUS - 0.5], 3.2)); // 입구 ~ 광장
   group.add(createPathSegment([0, -(PLAZA_RADIUS - 0.5)], [0, -19], 2.6)); // 북쪽 산책로
+  group.add(createPathSegment([0, -18], [-3.8, -20.5], 2.0)); // 북쪽 산책로 ~ 속삭이는 숲 입구
   for (const p of Object.values(doorFronts)) {
     const k = (PLAZA_RADIUS - 0.5) / dist(p);
     group.add(createPathSegment([p[0] * k, p[1] * k], p, 2));
@@ -164,5 +165,32 @@ export function createVillage() {
     returnYaw: cottageRot + Math.PI // 광장을 바라보는 각도
   };
 
-  return { group, colliders, spawn: new THREE.Vector3(0, 0, 18), houses, npcs, doorFronts, cottageEntrance };
+  // 속삭이는 숲 (Whispering Forest) 입구 아치 및 입장 트리거 (북쪽 산책로 좌측)
+  const forestGate = f.gate(1.5);
+  place(forestGate, -3.8, -20.5, Math.PI * 0.1);
+  colliders.push({ type: 'box', x: -3.8 - 1.5, z: -20.5, hw: 0.35, hd: 0.35, rot: 0 });
+  colliders.push({ type: 'box', x: -3.8 + 1.5, z: -20.5, hw: 0.35, hd: 0.35, rot: 0 });
+
+  // 숲 안내 표지판
+  place(f.sign(0x9bd7ae), -5.5, -19.5, Math.PI * 0.25);
+  circle(-5.5, -19.5, 0.2);
+
+  const forestEntrance = {
+    x: -3.8,
+    z: -20.5,
+    radius: 1.8,
+    returnPos: new THREE.Vector3(-3.8, 0, -18.8),
+    returnYaw: Math.PI // 마을 광장을 바라보는 각도
+  };
+
+  return {
+    group,
+    colliders,
+    spawn: new THREE.Vector3(0, 0, 18),
+    houses,
+    npcs,
+    doorFronts,
+    cottageEntrance,
+    forestEntrance
+  };
 }

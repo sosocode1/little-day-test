@@ -4,14 +4,16 @@ export const ItemType = {
   HEAD: 'head',       // 헤어 액세서리, 모자, 머리핀
   OUTFIT: 'outfit',   // 의상, 원피스, 셔츠
   BACK: 'back',       // 가방, 날개 등 등 장식
-  SHOES: 'shoes'      // 신발
+  SHOES: 'shoes',     // 신발
+  COLLECTIBLE: 'collectible' // 탐험 수집품 (버섯, 꽃, 허브 등)
 };
 
 export const ItemTypeName = {
   [ItemType.HEAD]: '헤어 액세서리',
   [ItemType.OUTFIT]: '의상',
   [ItemType.BACK]: '가방/등',
-  [ItemType.SHOES]: '신발'
+  [ItemType.SHOES]: '신발',
+  [ItemType.COLLECTIBLE]: '수집품'
 };
 
 export const ITEMS = {
@@ -164,6 +166,27 @@ export const ITEMS = {
       sole: 0xf5f0ea,
       ribbon: 0x67c29b
     }
+  },
+
+  // 속삭이는 숲 탐험 전용 수집 아이템 2종
+  forest_dew_mushroom: {
+    id: 'forest_dew_mushroom',
+    name: '숲 이슬 버섯',
+    type: ItemType.COLLECTIBLE,
+    categoryName: '수집품',
+    icon: '🍄',
+    description: '속삭이는 숲 그늘진 고목 아래에서 아침 이슬을 듬뿍 머금고 자란 통통하고 사랑스러운 붉은 버섯입니다. 달콤한 숲 향기가 납니다.',
+    source: '속삭이는 숲 탐험 채집'
+  },
+
+  whisper_mint_herb: {
+    id: 'whisper_mint_herb',
+    name: '속삭임 민트 허브',
+    type: ItemType.COLLECTIBLE,
+    categoryName: '수집품',
+    icon: '🌿',
+    description: '속삭이는 숲 맑은 시냇가 언덕에서 자라는 신선한 야생 허브입니다. 맑고 청량한 피톤치드 향이 주변에 은은하게 퍼집니다.',
+    source: '속삭이는 숲 탐험 채집'
   }
 };
 

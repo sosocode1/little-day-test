@@ -32,6 +32,13 @@ export function createInventorySystem(player = null) {
           acquiredItems.set(item.id, item);
         }
       } catch (e) {}
+    } else if (item.type === ItemType.COLLECTIBLE) {
+      // 숲 수집품(버섯, 허브 등)은 직접 채집해야 인벤토리에 들어옴 (이전 채집 기록 복원 지원)
+      try {
+        if (typeof localStorage !== 'undefined' && localStorage.getItem(`littleday_item_${item.id}`) === '1') {
+          acquiredItems.set(item.id, item);
+        }
+      } catch (e) {}
     } else {
       acquiredItems.set(item.id, item);
     }
@@ -56,6 +63,11 @@ export function createInventorySystem(player = null) {
       if (!item) return false;
 
       acquiredItems.set(id, item);
+      try {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem(`littleday_item_${id}`, '1');
+        }
+      } catch (e) {}
       notify();
       return true;
     },

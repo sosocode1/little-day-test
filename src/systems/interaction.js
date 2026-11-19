@@ -13,7 +13,9 @@ export function createInteractionSystem(
   wardrobeUI = null,
   vanityUI = null,
   welcomeGuideUI = null,
-  moonflowerEvent = null
+  moonflowerEvent = null,
+  forest = null,
+  forestEntrance = null
 ) {
   const ui = createDialogueUI();
   let nearestNpc = null;
@@ -59,9 +61,10 @@ export function createInteractionSystem(
       const interactPressed = input.consumeInteract();
       if (cooldownTimer > 0) cooldownTimer -= dt;
 
-      // 1. NPC들의 아이들 애니메이션 및 시선 업데이트 (야외일 때만)
+      // 1. NPC들의 아이들 애니메이션 및 시선 업데이트 (마을 야외일 때만)
+      const currentSpace = spaceManager ? spaceManager.getCurrentSpace() : 'village';
       const isIndoor = spaceManager && spaceManager.isIndoor();
-      if (!isIndoor) {
+      if (currentSpace === 'village') {
         for (const npc of npcs) {
           const isCurrentActive = isDialogueOpen && activeNpc === npc;
           npc.update(dt, playerPos, isCurrentActive);
@@ -100,7 +103,7 @@ export function createInteractionSystem(
       // -----------------------------------------------------------
       const candidates = [];
 
-      if (isIndoor && cottage && cottage.triggers) {
+      if (currentSpace === 'cottage' && cottage && cottage.triggers) {
         // [별장 실내 상호작용 후보]: 출입구(나가기), 옷장, 거울, 침대
         for (const trig of Object.values(cottage.triggers)) {
           const dist = Math.hypot(playerPos.x - trig.x, playerPos.z - trig.z);
@@ -143,8 +146,8 @@ export function createInteractionSystem(
             });
           }
         }
-      } else if (!isIndoor) {
-        // [마을 야외 상호작용 후보]: 별장 현관, 꽃 수집, NPC 대화
+      } else if (currentSpace === 'village') {
+        // [마을 야외 상호작용 후보]: 별장 현관, 꽃 수집, NPC 대화, 달빛 꽃, 속삭이는 숲 입구
 
         // (1) 별장 현관 입장
         if (cottageEntrance) {
@@ -226,6 +229,60 @@ export function createInteractionSystem(
                 moonflowerEvent.collect();
               }
             });
+          }
+        }
+
+        // (5) 속삭이는 숲 (Whispering Forest) 입장
+        if (forestEntrance) {
+          const dist = Math.hypot(playerPos.x - forestEntrance.x, playerPos.z - forestEntrance.z);
+          if (dist <= forestEntrance.radius) {
+            candidates.push({
+              id: 'forest_entrance',
+              type: 'forest_entrance',
+              dist,
+              prompt: '속삭이는 숲(Whispering Forest) 들어가기 🌲',
+              execute: () => {
+                if (spaceManager) spaceManager.enterForest();
+              }
+            });
+          }
+        }
+      } else if (currentSpace === 'forest' && forest) {
+        // [속삭이는 숲 상호작용 후보]: 마을 복귀 출구, 숲 수집품 (버섯, 허브)
+
+        // (1) 마을 복귀 출구
+        if (forest.exitTrigger) {
+          const trig = forest.exitTrigger;
+          const dist = Math.hypot(playerPos.x - trig.x, playerPos.z - trig.z);
+          if (dist <= trig.radius) {
+            candidates.push({
+              id: 'forest_exit',
+              type: 'forest_exit',
+              dist,
+              prompt: trig.prompt || '마을 광장으로 돌아가기 🏡',
+              execute: () => {
+                if (spaceManager) spaceManager.exitForest();
+              }
+            });
+          }
+        }
+
+        // (2) 숲 수집품 (숲 이슬 버섯, 속삭임 민트 허브)
+        if (forest.collectibles && typeof forest.collectibles.getActiveItems === 'function') {
+          for (const item of forest.collectibles.getActiveItems()) {
+            const dist = Math.hypot(playerPos.x - item.x, playerPos.z - item.z);
+            if (dist <= item.interactRadius) {
+              const actionVerb = item.type === 'mushroom' ? '채취하기' : '꺾기';
+              candidates.push({
+                id: item.id,
+                type: 'forest_collectible',
+                dist,
+                prompt: `${item.itemName} ${actionVerb} ${item.icon}`,
+                execute: () => {
+                  item.collect();
+                }
+              });
+            }
           }
         }
       }

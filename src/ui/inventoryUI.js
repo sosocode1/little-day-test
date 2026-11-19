@@ -369,6 +369,7 @@ export function createInventoryUI(inventorySystem) {
         <button class="inv-tab active" data-type="all">전체</button>
         <button class="inv-tab" data-type="${ItemType.HEAD}">헤어 액세서리</button>
         <button class="inv-tab" data-type="${ItemType.OUTFIT}">의상</button>
+        <button class="inv-tab" data-type="${ItemType.COLLECTIBLE}">수집품</button>
       </div>
       <div class="inv-body">
         <div class="inv-grid-container"></div>
@@ -475,9 +476,11 @@ export function createInventoryUI(inventorySystem) {
         </div>
         <div class="inv-detail-actions">
           ${
-            isEquipped
-              ? `<button class="inv-btn inv-btn-unequip" id="btn-unequip-item">✕ 착용 해제</button>`
-              : `<button class="inv-btn inv-btn-equip" id="btn-equip-item">✨ 착용하기</button>`
+            selectedItem.type === ItemType.COLLECTIBLE
+              ? `<button class="inv-btn inv-btn-collectible" style="background:#eef6f0;color:#2e754d;border:1px solid #c2e2cc;cursor:default;">🌿 보관함 보관 중</button>`
+              : isEquipped
+                ? `<button class="inv-btn inv-btn-unequip" id="btn-unequip-item">✕ 착용 해제</button>`
+                : `<button class="inv-btn inv-btn-equip" id="btn-equip-item">✨ 착용하기</button>`
           }
         </div>
       </div>

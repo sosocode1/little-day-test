@@ -50,12 +50,19 @@ const questSystem = createQuestSystem(inventorySystem);
 const moonflowerEvent = createMoonflowerEvent(scene, timeSystem, questSystem, inventorySystem);
 const timeUI = createTimeUI(timeSystem, moonflowerEvent);
 
+// 속삭이는 숲 수집품 시스템에 인벤토리 및 퀘스트(토스트) 시스템 연결
+if (world.forest && typeof world.forest.setSystems === 'function') {
+  world.forest.setSystems(inventorySystem, questSystem);
+}
+
 // 공간 이동 알림 (별장 진입 시 '우리 집에 돌아왔어요!' 토스트)
 spaceManager.onSpaceChange((space) => {
   if (space === 'cottage') {
     questSystem.ui.showToast('우리 집에 돌아왔어요! 편안하게 쉬어가세요 🏡✨', '🏡', 3000);
   } else if (space === 'village') {
     questSystem.ui.showToast('마을 광장으로 나왔어요! 기분 좋은 하루를 보내세요 🌿☀️', '🌿', 2500);
+  } else if (space === 'forest') {
+    questSystem.ui.showToast('신비로운 속삭이는 숲에 들어왔어요! 🌲✨', '🌲', 3200);
   }
 });
 
@@ -71,7 +78,9 @@ const interaction = createInteractionSystem(
   wardrobeUI,
   vanityUI,
   welcomeGuideUI,
-  moonflowerEvent
+  moonflowerEvent,
+  world.forest,
+  world.village.forestEntrance
 );
 
 let last = performance.now();
