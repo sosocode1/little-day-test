@@ -173,22 +173,35 @@ function buildTorso(preset) {
   const chest = ball(mat(preset.top), 0.2, [1, 1.15, 0.88], [0, 0.72, 0]); // 좁은 어깨의 작고 둥근 몸통
   body.add(chest);
 
-  if (preset.outfit === 'dress') {
-    const skirt = new THREE.Mesh(skirtGeo, new THREE.MeshStandardMaterial({ color: preset.bottom, roughness: 1, side: THREE.DoubleSide }));
-    skirt.name = 'skirt';
-    skirt.position.y = 0.56;
-    const hem = new THREE.Mesh(hemGeo, mat(preset.trim)); // 프릴 단
-    hem.scale.setScalar(0.268);
-    hem.rotation.x = Math.PI / 2;
-    hem.position.y = 0.36;
-    body.add(skirt, hem);
-    body.add(ball(mat(preset.accent), 0.05, [1.6, 0.8, 0.5], [0, 0.89, 0.165])); // 목 리본
-    body.add(ball(mat(preset.trim), 0.02, [1, 1, 1], [0, 0.89, 0.18]));
-  } else {
-    body.add(ball(mat(preset.bottom), 0.15, [1, 0.8, 0.85], [0, 0.47, 0])); // 골반
-    body.add(ball(mat(preset.trim), 0.1, [1.2, 0.5, 0.5], [0, 0.88, 0.14])); // 셔츠 칼라
-  }
-  return { group: body, chest };
+  // 스커트 (원피스용 - 허리 흰색 고리 hem 제거하여 단정하게 일체화)
+  const skirt = new THREE.Mesh(skirtGeo, new THREE.MeshStandardMaterial({ color: preset.bottom, roughness: 1, side: THREE.DoubleSide }));
+  skirt.name = 'skirt';
+  skirt.position.y = 0.56;
+  skirt.visible = (preset.outfit === 'dress');
+  body.add(skirt);
+
+  // 목 리본 장식 (원피스용)
+  const ribbon = ball(mat(preset.accent), 0.05, [1.6, 0.8, 0.5], [0, 0.89, 0.165]);
+  ribbon.name = 'ribbon';
+  const ribbonPin = ball(mat(preset.trim), 0.02, [1, 1, 1], [0, 0.89, 0.18]);
+  ribbonPin.name = 'ribbonPin';
+  ribbon.visible = (preset.outfit === 'dress');
+  ribbonPin.visible = (preset.outfit === 'dress');
+  body.add(ribbon, ribbonPin);
+
+  // 골반 하의 (바지용)
+  const pelvis = ball(mat(preset.bottom), 0.15, [1, 0.8, 0.85], [0, 0.47, 0]);
+  pelvis.name = 'pelvis';
+  pelvis.visible = (preset.outfit === 'pants');
+  body.add(pelvis);
+
+  // 셔츠 칼라 (바지용)
+  const collar = ball(mat(preset.trim), 0.1, [1.2, 0.5, 0.5], [0, 0.88, 0.14]);
+  collar.name = 'collar';
+  collar.visible = (preset.outfit === 'pants');
+  body.add(collar);
+
+  return { group: body, chest, skirt, pelvis, ribbon, ribbonPin, collar };
 }
 
 // 팔: 퍼프 소매 → 팔꿈치 그룹(팔뚝 + 손). 어깨 pivot과 elbow pivot으로 흔든다.
@@ -216,22 +229,29 @@ function buildLeg(side, preset) {
   const pivot = new THREE.Group();
   pivot.name = `leg${side < 0 ? 'L' : 'R'}`;
   pivot.position.set(side * 0.085, 0.38, 0);
-  const thigh = preset.outfit === 'dress' ? mat(preset.skin) : mat(preset.bottom);
-  const shin = preset.outfit === 'dress' ? mat(preset.skin) : mat(preset.bottom);
-  pivot.add(ball(thigh, 0.065, [1, 1.5, 1], [0, -0.065, 0]));
+  const thighMat = preset.outfit === 'dress' ? mat(preset.skin) : mat(preset.bottom);
+  const thigh = ball(thighMat, 0.065, [1, 1.5, 1], [0, -0.065, 0]);
+  thigh.name = 'thigh';
+  pivot.add(thigh);
 
   const knee = new THREE.Group();
   knee.name = 'knee';
   knee.position.y = -0.13;
-  knee.add(
-    ball(shin, 0.06, [1, 1.5, 1], [0, -0.07, 0]),
-    ball(mat(preset.trim), 0.066, [1.05, 0.85, 1.05], [0, -0.125, 0]), // 양말/바짓단
-    ball(mat(preset.shoes), 0.085, [1, 0.75, 1.5], [0, -0.185, 0.04]), // 두툼한 신발
-    ball(mat(preset.trim), 0.088, [1, 0.25, 1.5], [0, -0.225, 0.04]), // 흰 밑창
-    ball(mat(preset.trim), 0.025, [1.3, 0.8, 0.8], [0, -0.14, 0.095]) // 리본 포인트
-  );
+  const shinMat = preset.outfit === 'dress' ? mat(preset.skin) : mat(preset.bottom);
+  const shin = ball(shinMat, 0.06, [1, 1.5, 1], [0, -0.07, 0]);
+  shin.name = 'shin';
+  const sock = ball(mat(preset.trim), 0.066, [1.05, 0.85, 1.05], [0, -0.125, 0]); // 양말/바짓단
+  sock.name = 'sock';
+  const shoe = ball(mat(preset.shoes), 0.085, [1, 0.75, 1.5], [0, -0.185, 0.04]); // 두툼한 신발
+  shoe.name = 'shoe';
+  const sole = ball(mat(preset.trim), 0.088, [1, 0.25, 1.5], [0, -0.225, 0.04]); // 흰 밑창
+  sole.name = 'sole';
+  const shoeRibbon = ball(mat(preset.trim), 0.025, [1.3, 0.8, 0.8], [0, -0.14, 0.095]); // 리본 포인트
+  shoeRibbon.name = 'shoeRibbon';
+
+  knee.add(shin, sock, shoe, sole, shoeRibbon);
   pivot.add(knee);
-  return { pivot, knee };
+  return { pivot, knee, thigh, shin, sock, shoe, sole, shoeRibbon };
 }
 
 export function createCharacter(type = 'female') {
@@ -272,6 +292,7 @@ export function createCharacter(type = 'female') {
   let walk = 0; // 0 = 대기, 1 = 걷기 (부드럽게 전환)
   let t = 0;
   const equippedSlots = { head: null, back: null, outfit: null, shoes: null };
+  let currentOutfitType = preset.outfit; // 'dress' | 'pants'
 
   function clearSlot(slotGroup) {
     while (slotGroup.children.length > 0) {
@@ -283,7 +304,7 @@ export function createCharacter(type = 'female') {
     }
   }
 
-  // 3D 액세서리 메시 빌더
+  // 3D 액세서리 메시 빌더 (헤어 곡면 및 모자 착용감 정밀 보정)
   function buildAccessoryMesh(item) {
     if (item.modelType === 'flower_pin' || item.id === 'pink_flower_pin') {
       const pin = new THREE.Group();
@@ -295,16 +316,16 @@ export function createCharacter(type = 'female') {
       // 귀여운 5장 꽃잎
       for (let i = 0; i < 5; i++) {
         const a = (i / 5) * Math.PI * 2;
-        pin.add(ball(mat(petalColor), 0.038, [1, 1, 0.55], [Math.cos(a) * 0.034, Math.sin(a) * 0.034, 0]));
+        pin.add(ball(mat(petalColor), 0.036, [1, 1, 0.5], [Math.cos(a) * 0.034, Math.sin(a) * 0.034, 0]));
       }
       // 노란 꽃술 중심
-      pin.add(ball(mat(centerColor), 0.024, [1, 1, 0.7], [0, 0, 0.016]));
+      pin.add(ball(mat(centerColor), 0.024, [1, 1, 0.65], [0, 0, 0.016]));
       // 작은 녹색 잎사귀 포인트
       pin.add(ball(mat(leafColor), 0.022, [1.4, 0.8, 0.5], [0.038, -0.025, -0.008], [0, 0, -0.6]));
 
-      // 앞머리 우측 자연스러운 위치 및 각도
-      pin.position.set(-0.15, 0.22, 0.22);
-      pin.rotation.set(-0.4, -0.4, 0.2);
+      // 앞머리 좌측 곡면에 자연스럽게 안착
+      pin.position.set(-0.14, 0.20, 0.23);
+      pin.rotation.set(-0.35, -0.32, 0.15);
       return pin;
     }
 
@@ -315,15 +336,16 @@ export function createCharacter(type = 'female') {
       const ribColor = (item.colors && item.colors.ribbon) || 0xfff6ea;
       const btnColor = (item.colors && item.colors.button) || 0xfda5b8;
 
-      // 도톰한 둥근 베레모 본체 (약간 비스듬히 얹음)
-      beret.add(ball(mat(mainColor), 0.23, [1.4, 0.52, 1.35], [0, 0, 0]));
+      // 도톰하고 풍성한 베레모 본체 (머리 상단에 살포시 얹힘)
+      beret.add(ball(mat(mainColor), 0.22, [1.42, 0.5, 1.36], [0, 0, 0]));
       // 상단 작은 꼭지 버튼
-      beret.add(ball(mat(btnColor), 0.036, [0.8, 1.2, 0.8], [0, 0.12, 0]));
+      beret.add(ball(mat(btnColor), 0.032, [0.8, 1.1, 0.8], [0, 0.11, 0]));
       // 베레모 옆면의 앙증맞은 리본 장식
-      beret.add(ball(mat(ribColor), 0.046, [1.6, 0.7, 0.5], [0.18, -0.04, 0.08], [0, 0, -0.4]));
+      beret.add(ball(mat(ribColor), 0.045, [1.5, 0.65, 0.45], [0.17, -0.02, 0.06], [0, 0, -0.35]));
 
-      beret.position.set(-0.03, 0.30, 0.02);
-      beret.rotation.set(-0.15, 0.2, 0.22);
+      // 머리 꼭대기(y ~0.33) 위에 비스듬히 자연스럽게 안착
+      beret.position.set(-0.02, 0.33, -0.01);
+      beret.rotation.set(-0.12, 0.15, 0.2);
       return beret;
     }
 
@@ -336,21 +358,19 @@ export function createCharacter(type = 'female') {
 
       for (let i = 0; i < 8; i++) {
         const a = (i / 8) * Math.PI * 2;
-        sunflower.add(ball(mat(petalColor), 0.032, [1, 1.4, 0.5], [Math.cos(a) * 0.038, Math.sin(a) * 0.038, 0], [0, 0, a]));
+        sunflower.add(ball(mat(petalColor), 0.03, [1, 1.3, 0.5], [Math.cos(a) * 0.036, Math.sin(a) * 0.036, 0], [0, 0, a]));
       }
-      sunflower.add(ball(mat(centerColor), 0.032, [1, 1, 0.7], [0, 0, 0.015]));
-      sunflower.add(ball(mat(leafColor), 0.024, [1.5, 0.8, 0.5], [0.04, -0.03, -0.008], [0, 0, -0.5]));
+      sunflower.add(ball(mat(centerColor), 0.03, [1, 1, 0.65], [0, 0, 0.015]));
+      sunflower.add(ball(mat(leafColor), 0.022, [1.4, 0.8, 0.5], [0.038, -0.028, -0.008], [0, 0, -0.5]));
 
-      sunflower.position.set(0.14, 0.22, 0.23);
-      sunflower.rotation.set(-0.4, 0.35, -0.15);
+      // 앞머리 우측 곡면에 밀착
+      sunflower.position.set(0.13, 0.20, 0.23);
+      sunflower.rotation.set(-0.35, 0.32, -0.15);
       return sunflower;
     }
 
     return null;
   }
-
-  // 의상/치마 메쉬 참조
-  const skirtMesh = torso.group.getObjectByName('skirt');
 
   return {
     root,
@@ -380,26 +400,64 @@ export function createCharacter(type = 'female') {
       }
 
       if (slotType === 'outfit') {
+        const isPants = item.outfitType === 'pants';
+        currentOutfitType = isPants ? 'pants' : 'dress';
         const topColor = (item.colors && item.colors.top) || preset.top;
         const bottomColor = (item.colors && item.colors.bottom) || preset.bottom;
+        const trimColor = (item.colors && item.colors.trim) || preset.trim;
+        const accentColor = (item.colors && item.colors.accent) || preset.accent;
 
-        // 상의 및 소매 색상 갱신
+        // 1. 상의 및 소매 색상 갱신
         torso.chest.material = mat(topColor);
         if (L.pivot.children[0]) L.pivot.children[0].material = mat(topColor);
         if (R.pivot.children[0]) R.pivot.children[0].material = mat(topColor);
 
-        // 치마/하의 색상 갱신
-        if (skirtMesh) {
-          skirtMesh.material = mat(bottomColor);
+        // 2. 하의 형태에 따른 스커트/바지(골반) 가시성 및 색상
+        if (torso.skirt) {
+          torso.skirt.visible = !isPants;
+          torso.skirt.material = mat(bottomColor);
         }
+        if (torso.pelvis) {
+          torso.pelvis.visible = isPants;
+          torso.pelvis.material = mat(bottomColor);
+        }
+        if (torso.ribbon) {
+          torso.ribbon.visible = !isPants;
+          torso.ribbon.material = mat(accentColor);
+        }
+        if (torso.ribbonPin) torso.ribbonPin.visible = !isPants;
+        if (torso.collar) {
+          torso.collar.visible = isPants;
+          torso.collar.material = mat(trimColor);
+        }
+
+        // 3. 다리(허벅지/종아리): 바지일 땐 바지 색상, 스커트일 땐 피부색(맨다리)
+        const legColor = isPants ? bottomColor : preset.skin;
+        legL.thigh.material = mat(legColor);
+        legL.shin.material = mat(legColor);
+        legR.thigh.material = mat(legColor);
+        legR.shin.material = mat(legColor);
+
+        // 4. 양말/바짓단 트림 색상
+        legL.sock.material = mat(trimColor);
+        legR.sock.material = mat(trimColor);
+
         equippedSlots.outfit = item.id;
         return true;
       }
 
       if (slotType === 'shoes') {
         const shoeColor = (item.colors && item.colors.main) || preset.shoes;
-        if (legL.knee.children[2]) legL.knee.children[2].material = mat(shoeColor);
-        if (legR.knee.children[2]) legR.knee.children[2].material = mat(shoeColor);
+        const soleColor = (item.colors && item.colors.sole) || preset.trim;
+        const ribbonColor = (item.colors && item.colors.ribbon) || preset.trim;
+
+        legL.shoe.material = mat(shoeColor);
+        legR.shoe.material = mat(shoeColor);
+        legL.sole.material = mat(soleColor);
+        legR.sole.material = mat(soleColor);
+        legL.shoeRibbon.material = mat(ribbonColor);
+        legR.shoeRibbon.material = mat(ribbonColor);
+
         equippedSlots.shoes = item.id;
         return true;
       }
@@ -417,19 +475,48 @@ export function createCharacter(type = 'female') {
       }
 
       if (slotType === 'outfit') {
-        // 기본 프리셋 의상 색상으로 복구
+        const isDefaultPants = preset.outfit === 'pants';
+        currentOutfitType = preset.outfit;
+
         torso.chest.material = mat(preset.top);
         if (L.pivot.children[0]) L.pivot.children[0].material = mat(preset.top);
         if (R.pivot.children[0]) R.pivot.children[0].material = mat(preset.top);
-        if (skirtMesh) skirtMesh.material = mat(preset.bottom);
+
+        if (torso.skirt) {
+          torso.skirt.visible = !isDefaultPants;
+          torso.skirt.material = mat(preset.bottom);
+        }
+        if (torso.pelvis) {
+          torso.pelvis.visible = isDefaultPants;
+          torso.pelvis.material = mat(preset.bottom);
+        }
+        if (torso.ribbon) {
+          torso.ribbon.visible = !isDefaultPants;
+          torso.ribbon.material = mat(preset.accent);
+        }
+        if (torso.ribbonPin) torso.ribbonPin.visible = !isDefaultPants;
+        if (torso.collar) torso.collar.visible = isDefaultPants;
+
+        const legColor = isDefaultPants ? preset.bottom : preset.skin;
+        legL.thigh.material = mat(legColor);
+        legL.shin.material = mat(legColor);
+        legR.thigh.material = mat(legColor);
+        legR.shin.material = mat(legColor);
+
+        legL.sock.material = mat(preset.trim);
+        legR.sock.material = mat(preset.trim);
+
         equippedSlots.outfit = null;
         return true;
       }
 
       if (slotType === 'shoes') {
-        // 기본 프리셋 신발 색상으로 복구
-        if (legL.knee.children[2]) legL.knee.children[2].material = mat(preset.shoes);
-        if (legR.knee.children[2]) legR.knee.children[2].material = mat(preset.shoes);
+        legL.shoe.material = mat(preset.shoes);
+        legR.shoe.material = mat(preset.shoes);
+        legL.sole.material = mat(preset.trim);
+        legR.sole.material = mat(preset.trim);
+        legL.shoeRibbon.material = mat(preset.trim);
+        legR.shoeRibbon.material = mat(preset.trim);
         equippedSlots.shoes = null;
         return true;
       }
@@ -488,6 +575,14 @@ export function createCharacter(type = 'female') {
         // 팔꿈치/손
         L.elbow.children.forEach((c) => { if (c.isMesh) c.material = skinMat; });
         R.elbow.children.forEach((c) => { if (c.isMesh) c.material = skinMat; });
+
+        // 다리 (원피스/스커트 착용 상태일 때만 피부색 갱신)
+        if (currentOutfitType !== 'pants') {
+          legL.thigh.material = skinMat;
+          legL.shin.material = skinMat;
+          legR.thigh.material = skinMat;
+          legR.shin.material = skinMat;
+        }
       }
 
       // 눈동자 컬러 변경

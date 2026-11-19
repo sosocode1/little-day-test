@@ -11,6 +11,7 @@ import { createInventorySystem } from './systems/inventory.js';
 import { createInventoryUI } from './ui/inventoryUI.js';
 import { createWardrobeUI } from './ui/wardrobeUI.js';
 import { createVanityUI } from './ui/vanityUI.js';
+import { createWelcomeGuideUI } from './ui/welcomeGuideUI.js';
 import { createSpaceManager } from './systems/spaceManager.js';
 
 const renderer = createRenderer(document.getElementById('app'));
@@ -30,13 +31,24 @@ const followCamera = createFollowCamera(camera);
 // 공간 전환 관리자 (마을 <-> 별장 실내)
 const spaceManager = createSpaceManager(world, player, followCamera);
 
-// 아이템 보관함, 옷장, 화장대 및 퀘스트 시스템 초기화
+// 아이템 보관함, 옷장, 화장대, 조작 안내 가이드 및 퀘스트 시스템 초기화
 const inventorySystem = createInventorySystem(player);
 const inventoryUI = createInventoryUI(inventorySystem);
 const wardrobeUI = createWardrobeUI(inventorySystem);
 const vanityUI = createVanityUI(player);
+const welcomeGuideUI = createWelcomeGuideUI();
 const flowerManager = createFlowerManager(scene);
 const questSystem = createQuestSystem(inventorySystem);
+
+// 공간 이동 알림 (별장 진입 시 '우리 집에 돌아왔어요!' 토스트)
+spaceManager.onSpaceChange((space) => {
+  if (space === 'cottage') {
+    questSystem.ui.showToast('우리 집에 돌아왔어요! 편안하게 쉬어가세요 🏡✨', '🏡', 3000);
+  } else if (space === 'village') {
+    questSystem.ui.showToast('마을 광장으로 나왔어요! 기분 좋은 하루를 보내세요 🌿☀️', '🌿', 2500);
+  }
+});
+
 const interaction = createInteractionSystem(
   npcs,
   flowerManager,
@@ -47,7 +59,8 @@ const interaction = createInteractionSystem(
   world.cottage,
   world.village.cottageEntrance,
   wardrobeUI,
-  vanityUI
+  vanityUI,
+  welcomeGuideUI
 );
 
 let last = performance.now();

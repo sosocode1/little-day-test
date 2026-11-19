@@ -11,7 +11,8 @@ export function createInteractionSystem(
   cottage = null,
   cottageEntrance = null,
   wardrobeUI = null,
-  vanityUI = null
+  vanityUI = null,
+  welcomeGuideUI = null
 ) {
   const ui = createDialogueUI();
   let nearestNpc = null;
@@ -28,7 +29,8 @@ export function createInteractionSystem(
     spaceManager,
     wardrobeUI,
     vanityUI,
-    // 대화창, 보상 모달, 보관함, 옷장, 화장대 또는 공간 전환 중인지 여부 (플레이어 이동 잠금용)
+    welcomeGuideUI,
+    // 대화창, 보상 모달, 보관함, 옷장, 화장대, 환영 가이드 또는 공간 전환 중인지 여부 (플레이어 이동 잠금용)
     isInteracting() {
       return (
         ui.isOpen() ||
@@ -36,10 +38,16 @@ export function createInteractionSystem(
         (inventoryUI && inventoryUI.isOpen()) ||
         (wardrobeUI && wardrobeUI.isOpen()) ||
         (vanityUI && vanityUI.isOpen()) ||
+        (welcomeGuideUI && welcomeGuideUI.isOpen()) ||
         (spaceManager && spaceManager.isTransitioning())
       );
     },
     update(playerPos, input, dt) {
+      if (welcomeGuideUI && welcomeGuideUI.isOpen()) {
+        ui.hidePrompt();
+        return;
+      }
+
       const isDialogueOpen = ui.isOpen();
       const isRewardOpen = questSystem && questSystem.ui.isRewardModalOpen();
       const isInventoryOpen = inventoryUI && inventoryUI.isOpen();
@@ -144,7 +152,7 @@ export function createInteractionSystem(
               id: 'cottage_entrance',
               type: 'cottage_entrance',
               dist,
-              prompt: '별장 입장하기',
+              prompt: '우리 집(MY LITTLE HOME) 들어가기',
               execute: () => {
                 if (spaceManager) spaceManager.enterCottage();
               }

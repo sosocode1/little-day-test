@@ -70,7 +70,7 @@ export function createVillage() {
 
   // ----- 집 3채 (모두 광장을 향한다) -----
   const houses = [
-    { id: 'player-cottage', x: -13, z: -8, opts: { wall: 0xcfeedd, roof: 0xffc2d4, door: 0xf0a8b8 } },
+    { id: 'player-cottage', x: -13, z: -8, opts: { wall: 0xcfeedd, roof: 0xffc2d4, door: 0xf0a8b8, isPlayerHouse: true } },
     { id: 'villager-a', x: 13, z: -9, opts: { wall: 0xffdcc8, roof: 0xb7d5f5, door: 0x9fc7ea } },
     { id: 'villager-b', x: 14.5, z: 8, opts: { wall: 0xfff0b8, roof: 0xe3c7f0, door: 0xc9a7dc } },
   ];

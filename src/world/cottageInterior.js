@@ -216,14 +216,14 @@ export function createCottageInterior() {
   group.add(rugGroup);
 
   // ----------------------------------------------------
-  // 4. 상호작용 트리거 지점 목록 (인터랙션 시스템용)
+  // 4. 상호작용 트리거 지점 목록 (플레이어 주거 공간 인터랙션)
   // ----------------------------------------------------
   const triggers = {
     // [E] 나가기 (출입문 근처)
     exit: {
       id: 'exit',
-      name: '마을로 나가기',
-      prompt: '나가기',
+      name: '마을 광장으로 나가기',
+      prompt: '마을 광장으로 나가기',
       x: 0,
       z: 2.3,
       radius: 1.4
@@ -231,17 +231,17 @@ export function createCottageInterior() {
     // [E] 옷장 열기 (의상 변경)
     wardrobe: {
       id: 'wardrobe',
-      name: '옷장',
-      prompt: '옷장 열기 (의상 변경)',
+      name: '내 옷장',
+      prompt: '내 옷장 열기 (의상 갈아입기)',
       x: 2.35,
       z: -1.75,
       radius: 1.35
     },
-    // [E] 거울 보기 (캐릭터 꾸미기)
+    // [E] 거울/화장대 보기 (캐릭터 꾸미기)
     mirror: {
       id: 'mirror',
-      name: '전신 거울',
-      prompt: '거울 보기 (캐릭터 꾸미기)',
+      name: '내 화장대',
+      prompt: '내 화장대 보기 (외형 스타일링)',
       x: 2.1,
       z: 0.1,
       radius: 1.3
@@ -249,8 +249,8 @@ export function createCottageInterior() {
     // [E] 침대 휴식
     bed: {
       id: 'bed',
-      name: '포근한 침대',
-      prompt: '침대에서 휴식하기',
+      name: '포근한 내 침대',
+      prompt: '포근한 침대에서 휴식하기',
       x: -1.2,
       z: -1.95,
       radius: 1.3
