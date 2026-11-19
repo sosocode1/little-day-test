@@ -47,17 +47,25 @@ export function createHouse({
   g.add(mk(new THREE.SphereGeometry(0.06, 10, 8), 0xfff1a8, [0.3, 0.9, zf + 0.13]));
   g.add(mk(rbox(1.6, 0.12, 0.7, 0.05), trim, [0, 0.06, zf + 0.4])); // 현관 계단
 
-  // 앞/옆 창문
+  // 앞/옆 창문 (야간 창문 점등 연출을 위해 전용 유리 메쉬 설정)
   const wy = height * 0.6 + 0.05;
   for (const s of [-1, 1]) {
     const wx = s * (width / 2 - 0.95);
     g.add(mk(rbox(1.0, 1.0, 0.1, 0.06), trim, [wx, wy, zf + 0.01]));
-    g.add(mk(rbox(0.78, 0.78, 0.12, 0.05), glass, [wx, wy, zf + 0.04]));
+
+    const frontGlass = mk(rbox(0.78, 0.78, 0.12, 0.05), glass, [wx, wy, zf + 0.04]);
+    frontGlass.name = 'window-glass';
+    frontGlass.material = new THREE.MeshStandardMaterial({ color: glass, roughness: 1, metalness: 0 });
+    g.add(frontGlass);
+
     g.add(mk(rbox(0.2, 0.9, 0.1, 0.05), door, [wx + s * 0.62, wy, zf + 0.03])); // 덧창
     g.add(mk(rbox(1.0, 0.18, 0.28, 0.06), door, [wx, wy - 0.62, zf + 0.15])); // 꽃 상자
 
     g.add(mk(rbox(0.1, 1.0, 1.0, 0.06), trim, [s * (width / 2 + 0.01), wy, 0]));
-    g.add(mk(rbox(0.12, 0.78, 0.78, 0.05), glass, [s * (width / 2 + 0.04), wy, 0]));
+    const sideGlass = mk(rbox(0.12, 0.78, 0.78, 0.05), glass, [s * (width / 2 + 0.04), wy, 0]);
+    sideGlass.name = 'window-glass';
+    sideGlass.material = new THREE.MeshStandardMaterial({ color: glass, roughness: 1, metalness: 0 });
+    g.add(sideGlass);
   }
 
   // 플레이어 별장 전용 외관 장식 (문패, 우편함, 꽃 화분)

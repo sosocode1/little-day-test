@@ -12,11 +12,17 @@ import { createInventoryUI } from './ui/inventoryUI.js';
 import { createWardrobeUI } from './ui/wardrobeUI.js';
 import { createVanityUI } from './ui/vanityUI.js';
 import { createWelcomeGuideUI } from './ui/welcomeGuideUI.js';
+import { createTimeUI } from './ui/timeUI.js';
+import { createTimeSystem } from './systems/timeSystem.js';
 import { createSpaceManager } from './systems/spaceManager.js';
+
+// 게임 내부 시간 시스템 초기화 (기본 오전 10:00 시작, 현실 8분 = 게임 24시간)
+const timeSystem = createTimeSystem({ initialTime: 10.0, realSecondsPerDay: 480 });
+const timeUI = createTimeUI(timeSystem);
 
 const renderer = createRenderer(document.getElementById('app'));
 const camera = createCamera();
-const world = createScene();
+const world = createScene(timeSystem);
 const { scene, spawn, npcs } = world;
 onResize(renderer, camera);
 
@@ -68,14 +74,18 @@ renderer.setAnimationLoop((time) => {
   const dt = Math.min((time - last) / 1000, 0.05);
   last = time;
 
+  // 게임 시간 및 시간 표시 UI 업데이트
+  timeSystem.update(dt);
+  timeUI.update();
+
   // I 키 입력 시 아이템 보관함 토글
   if (input.consumeInventoryToggle()) {
     inventoryUI.toggle();
   }
 
-  // 동적 환경 업데이트 (실내에서는 야외 환경 갱신 스킵)
+  // 동적 환경 업데이트 (낮과 밤 태양/달 궤도, 하늘/안개 색상, 가로등/창문/반딧불이)
   if (world.update) {
-    world.update(player.position, spaceManager.isIndoor());
+    world.update(player.position, spaceManager.isIndoor(), dt);
   }
 
   // 상호작용 및 NPC/꽃/별장/퀘스트 업데이트

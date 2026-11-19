@@ -16,9 +16,29 @@ export function createLamp() {
   g.name = 'lamp';
   g.add(mk(cyl(0.1, 0.14, 0.2), clay(0xd9c7b3), [0, 0.1, 0]));
   g.add(mk(cyl(0.045, 0.06, 1.9), clay(0xd9c7b3), [0, 1.05, 0]));
-  g.add(mk(new THREE.SphereGeometry(0.2, 14, 10), glow(0xfff1b8), [0, 2.1, 0]));
+
+  // 가로등 전구: 주간/야간 발광 제어가 가능한 독립 재질
+  const bulbMat = new THREE.MeshStandardMaterial({
+    color: 0xfff1b8,
+    emissive: 0xffdf88,
+    emissiveIntensity: 0.1,
+    roughness: 1
+  });
+  const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.2, 14, 10), bulbMat);
+  bulb.name = 'lamp-bulb';
+  bulb.position.set(0, 2.1, 0);
+  g.add(bulb);
+
+  // 야간 가로등 웜 라이트 (기본 강도 0, 야간에 점등)
+  const lampLight = new THREE.PointLight(0xffdf88, 0, 9.0, 1.3);
+  lampLight.name = 'lamp-light';
+  lampLight.position.set(0, 2.05, 0);
+  g.add(lampLight);
+
   g.add(mk(new THREE.ConeGeometry(0.26, 0.2, 12), clay(0xffc2d4), [0, 2.38, 0]));
-  g.traverse((o) => (o.castShadow = o.isMesh));
+  g.traverse((o) => {
+    if (o.isMesh && o.name !== 'lamp-bulb') o.castShadow = true;
+  });
   return g;
 }
 
