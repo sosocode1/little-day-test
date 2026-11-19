@@ -307,8 +307,50 @@ export function createCharacter(type = 'female') {
       pin.rotation.set(-0.4, -0.4, 0.2);
       return pin;
     }
+
+    if (item.modelType === 'beret' || item.id === 'mint_ribbon_beret') {
+      const beret = new THREE.Group();
+      beret.name = `accessory_${item.id}`;
+      const mainColor = (item.colors && item.colors.main) || 0xb5e2cd;
+      const ribColor = (item.colors && item.colors.ribbon) || 0xfff6ea;
+      const btnColor = (item.colors && item.colors.button) || 0xfda5b8;
+
+      // 도톰한 둥근 베레모 본체 (약간 비스듬히 얹음)
+      beret.add(ball(mat(mainColor), 0.23, [1.4, 0.52, 1.35], [0, 0, 0]));
+      // 상단 작은 꼭지 버튼
+      beret.add(ball(mat(btnColor), 0.036, [0.8, 1.2, 0.8], [0, 0.12, 0]));
+      // 베레모 옆면의 앙증맞은 리본 장식
+      beret.add(ball(mat(ribColor), 0.046, [1.6, 0.7, 0.5], [0.18, -0.04, 0.08], [0, 0, -0.4]));
+
+      beret.position.set(-0.03, 0.30, 0.02);
+      beret.rotation.set(-0.15, 0.2, 0.22);
+      return beret;
+    }
+
+    if (item.modelType === 'sunflower' || item.id === 'sunflower_clip') {
+      const sunflower = new THREE.Group();
+      sunflower.name = `accessory_${item.id}`;
+      const petalColor = (item.colors && item.colors.petal) || 0xffce42;
+      const centerColor = (item.colors && item.colors.center) || 0x7c4932;
+      const leafColor = (item.colors && item.colors.leaf) || 0x8ec89a;
+
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2;
+        sunflower.add(ball(mat(petalColor), 0.032, [1, 1.4, 0.5], [Math.cos(a) * 0.038, Math.sin(a) * 0.038, 0], [0, 0, a]));
+      }
+      sunflower.add(ball(mat(centerColor), 0.032, [1, 1, 0.7], [0, 0, 0.015]));
+      sunflower.add(ball(mat(leafColor), 0.024, [1.5, 0.8, 0.5], [0.04, -0.03, -0.008], [0, 0, -0.5]));
+
+      sunflower.position.set(0.14, 0.22, 0.23);
+      sunflower.rotation.set(-0.4, 0.35, -0.15);
+      return sunflower;
+    }
+
     return null;
   }
+
+  // 의상/치마 메쉬 참조
+  const skirtMesh = torso.group.getObjectByName('skirt');
 
   return {
     root,
@@ -316,41 +358,153 @@ export function createCharacter(type = 'female') {
       body, torso: torso.group, head, hair: head.getObjectByName('hair'), face: head.getObjectByName('face'),
       armL: L.pivot, armR: R.pivot, legL: legL.pivot, legR: legR.pivot, slots
     },
-    // 액세서리 장착 (슬롯별 확장 구조)
+    // 액세서리 및 의상 장착 (슬롯별 확장 구조)
     equipAccessory(item) {
       if (!item) return false;
       const slotType = item.type || 'head';
-      const slotGroup = slots[slotType];
-      if (!slotGroup) return false;
 
-      // 이전 아이템 정리
-      clearSlot(slotGroup);
-      const oldPin = head.getObjectByName('rewardFlowerPin');
-      if (oldPin) head.remove(oldPin);
+      if (slotType === 'head') {
+        const slotGroup = slots.head;
+        if (!slotGroup) return false;
+        clearSlot(slotGroup);
+        const oldPin = head.getObjectByName('rewardFlowerPin');
+        if (oldPin) head.remove(oldPin);
 
-      // 새 액세서리 메시 부착
-      const mesh = buildAccessoryMesh(item);
-      if (mesh) {
-        slotGroup.add(mesh);
-        equippedSlots[slotType] = item.id;
+        const mesh = buildAccessoryMesh(item);
+        if (mesh) {
+          slotGroup.add(mesh);
+          equippedSlots.head = item.id;
+          return true;
+        }
+        return false;
+      }
+
+      if (slotType === 'outfit') {
+        const topColor = (item.colors && item.colors.top) || preset.top;
+        const bottomColor = (item.colors && item.colors.bottom) || preset.bottom;
+
+        // 상의 및 소매 색상 갱신
+        torso.chest.material = mat(topColor);
+        if (L.pivot.children[0]) L.pivot.children[0].material = mat(topColor);
+        if (R.pivot.children[0]) R.pivot.children[0].material = mat(topColor);
+
+        // 치마/하의 색상 갱신
+        if (skirtMesh) {
+          skirtMesh.material = mat(bottomColor);
+        }
+        equippedSlots.outfit = item.id;
         return true;
       }
+
+      if (slotType === 'shoes') {
+        const shoeColor = (item.colors && item.colors.main) || preset.shoes;
+        if (legL.knee.children[2]) legL.knee.children[2].material = mat(shoeColor);
+        if (legR.knee.children[2]) legR.knee.children[2].material = mat(shoeColor);
+        equippedSlots.shoes = item.id;
+        return true;
+      }
+
       return false;
     },
-    // 액세서리 착용 해제
+    // 액세서리/의상 착용 해제
     unequipAccessory(slotType = 'head') {
-      const slotGroup = slots[slotType];
-      if (slotGroup) {
-        clearSlot(slotGroup);
+      if (slotType === 'head') {
+        clearSlot(slots.head);
+        const oldPin = head.getObjectByName('rewardFlowerPin');
+        if (oldPin) head.remove(oldPin);
+        equippedSlots.head = null;
+        return true;
       }
-      const oldPin = head.getObjectByName('rewardFlowerPin');
-      if (oldPin) head.remove(oldPin);
-      equippedSlots[slotType] = null;
-      return true;
+
+      if (slotType === 'outfit') {
+        // 기본 프리셋 의상 색상으로 복구
+        torso.chest.material = mat(preset.top);
+        if (L.pivot.children[0]) L.pivot.children[0].material = mat(preset.top);
+        if (R.pivot.children[0]) R.pivot.children[0].material = mat(preset.top);
+        if (skirtMesh) skirtMesh.material = mat(preset.bottom);
+        equippedSlots.outfit = null;
+        return true;
+      }
+
+      if (slotType === 'shoes') {
+        // 기본 프리셋 신발 색상으로 복구
+        if (legL.knee.children[2]) legL.knee.children[2].material = mat(preset.shoes);
+        if (legR.knee.children[2]) legR.knee.children[2].material = mat(preset.shoes);
+        equippedSlots.shoes = null;
+        return true;
+      }
+
+      return false;
     },
     // 현재 슬롯 장착 아이템 ID 반환
     getEquippedAccessory(slotType = 'head') {
       return equippedSlots[slotType] || null;
+    },
+    // 화장대용 외형(헤어스타일, 헤어색상, 피부톤, 눈동자) 변경 API
+    setAppearance(options = {}) {
+      let hairChanged = false;
+
+      // 헤어 스타일 변경 ('bobBuns' <-> 'tufty')
+      if (options.hairStyle && options.hairStyle !== preset.hairStyle) {
+        preset.hairStyle = options.hairStyle;
+        hairChanged = true;
+      }
+
+      // 헤어 컬러 변경
+      if (options.hairColor !== undefined && options.hairColor !== preset.hair) {
+        preset.hair = options.hairColor;
+        preset.hairAccent = options.hairAccent || options.hairColor;
+        hairChanged = true;
+      }
+
+      if (hairChanged) {
+        const oldHair = head.getObjectByName('hair');
+        if (oldHair) head.remove(oldHair);
+        const newHair = buildHair(preset);
+        head.add(newHair);
+      }
+
+      // 피부 톤 변경
+      if (options.skinColor !== undefined && options.skinColor !== preset.skin) {
+        preset.skin = options.skinColor;
+        const skinMat = mat(preset.skin);
+
+        // 머리 기저구체
+        if (head.children[0]) head.children[0].material = skinMat;
+
+        // 얼굴 볼/귀
+        const faceObj = head.getObjectByName('face');
+        if (faceObj) {
+          faceObj.traverse((child) => {
+            if (child.isMesh && child.name !== 'mouth' && !child.name.startsWith('eye')) {
+              // 볼터치(0xffa8a8)나 코는 유지하고 피부 메쉬만 갱신
+              if (child.geometry === sphereGeo && child.scale.x < 0.25 && child.position.z < 0.2) {
+                child.material = skinMat;
+              }
+            }
+          });
+        }
+
+        // 팔꿈치/손
+        L.elbow.children.forEach((c) => { if (c.isMesh) c.material = skinMat; });
+        R.elbow.children.forEach((c) => { if (c.isMesh) c.material = skinMat; });
+      }
+
+      // 눈동자 컬러 변경
+      if (options.eyeColor !== undefined) {
+        const eyeL = head.getObjectByName('eyeL');
+        const eyeR = head.getObjectByName('eyeR');
+        const eyeMat = mat(options.eyeColor);
+        if (eyeL && eyeL.children[1]) eyeL.children[1].material = eyeMat;
+        if (eyeR && eyeR.children[1]) eyeR.children[1].material = eyeMat;
+        preset.eyeColor = options.eyeColor;
+      }
+
+      return true;
+    },
+    // 현재 외형 프리셋 상태 반환
+    getAppearance() {
+      return { ...preset };
     },
     // 퀘스트 보상 레거시 호환 메서드
     equipFlowerPin() {

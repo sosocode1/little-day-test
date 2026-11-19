@@ -16,6 +16,8 @@ export function createPlayer(type = 'female', spawnPos = null) {
   group.equipAccessory = (item) => character.equipAccessory(item);
   group.unequipAccessory = (slotType) => character.unequipAccessory(slotType);
   group.getEquippedAccessory = (slotType) => character.getEquippedAccessory(slotType);
+  group.setAppearance = (options) => character.setAppearance(options);
+  group.getAppearance = () => character.getAppearance();
   if (spawnPos) {
     group.position.copy(spawnPos);
   } else {

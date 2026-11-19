@@ -23,10 +23,9 @@ export function createInventorySystem(player = null) {
     }
   }
 
-  // 요구사항 7: "퀘스트를 다시 완료하지 않아도 획득한 보상을 사용할 수 있어야 합니다."
-  // 폭시의 퀘스트 보상 아이템을 초기 획득 상태로 등록
-  if (ITEMS.pink_flower_pin) {
-    acquiredItems.set(ITEMS.pink_flower_pin.id, ITEMS.pink_flower_pin);
+  // 옷장 및 인벤토리 기본 보유 아이템 초기 등록 (퀘스트 보상 및 기본 컬렉션)
+  for (const item of Object.values(ITEMS)) {
+    acquiredItems.set(item.id, item);
   }
 
   return {

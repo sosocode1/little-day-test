@@ -9,7 +9,9 @@ export function createInteractionSystem(
   inventoryUI = null,
   spaceManager = null,
   cottage = null,
-  cottageEntrance = null
+  cottageEntrance = null,
+  wardrobeUI = null,
+  vanityUI = null
 ) {
   const ui = createDialogueUI();
   let nearestNpc = null;
@@ -24,12 +26,16 @@ export function createInteractionSystem(
     questSystem,
     inventoryUI,
     spaceManager,
-    // 대화창, 보상 모달, 보관함, 또는 공간 전환 중인지 여부 (플레이어 이동 잠금용)
+    wardrobeUI,
+    vanityUI,
+    // 대화창, 보상 모달, 보관함, 옷장, 화장대 또는 공간 전환 중인지 여부 (플레이어 이동 잠금용)
     isInteracting() {
       return (
         ui.isOpen() ||
         (questSystem && questSystem.ui.isRewardModalOpen()) ||
         (inventoryUI && inventoryUI.isOpen()) ||
+        (wardrobeUI && wardrobeUI.isOpen()) ||
+        (vanityUI && vanityUI.isOpen()) ||
         (spaceManager && spaceManager.isTransitioning())
       );
     },
@@ -37,6 +43,8 @@ export function createInteractionSystem(
       const isDialogueOpen = ui.isOpen();
       const isRewardOpen = questSystem && questSystem.ui.isRewardModalOpen();
       const isInventoryOpen = inventoryUI && inventoryUI.isOpen();
+      const isWardrobeOpen = wardrobeUI && wardrobeUI.isOpen();
+      const isVanityOpen = vanityUI && vanityUI.isOpen();
       const isTransitioning = spaceManager && spaceManager.isTransitioning();
       const interactPressed = input.consumeInteract();
       if (cooldownTimer > 0) cooldownTimer -= dt;
@@ -55,8 +63,8 @@ export function createInteractionSystem(
         }
       }
 
-      // 전환 중이거나 인벤토리가 열려 있는 경우 프롬프트 숨김 및 입력 스킵
-      if (isTransitioning || isInventoryOpen) {
+      // 전환 중이거나 인벤토리/옷장/화장대가 열려 있는 경우 프롬프트 숨김 및 입력 스킵
+      if (isTransitioning || isInventoryOpen || isWardrobeOpen || isVanityOpen) {
         ui.hidePrompt();
         return;
       }
@@ -97,14 +105,18 @@ export function createInteractionSystem(
                   // 별장 나가기
                   spaceManager.exitCottage();
                 } else if (trig.id === 'wardrobe') {
-                  // 옷장 열기 (의상 보관함 탭)
-                  if (inventoryUI) {
+                  // 옷장 열기 (옷장 전용 UI 열기)
+                  if (wardrobeUI) {
+                    wardrobeUI.open();
+                  } else if (inventoryUI) {
                     inventoryUI.open();
                     inventoryUI.selectTab('outfit');
                   }
                 } else if (trig.id === 'mirror') {
-                  // 거울 보기 (헤어 액세서리 탭)
-                  if (inventoryUI) {
+                  // 화장대 & 거울 보기 (화장대 뷰티 스타일링 UI 열기)
+                  if (vanityUI) {
+                    vanityUI.open();
+                  } else if (inventoryUI) {
                     inventoryUI.open();
                     inventoryUI.selectTab('head');
                   }

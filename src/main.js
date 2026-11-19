@@ -9,6 +9,8 @@ import { createFlowerManager } from './world/collectibleFlower.js';
 import { createQuestSystem } from './systems/quest.js';
 import { createInventorySystem } from './systems/inventory.js';
 import { createInventoryUI } from './ui/inventoryUI.js';
+import { createWardrobeUI } from './ui/wardrobeUI.js';
+import { createVanityUI } from './ui/vanityUI.js';
 import { createSpaceManager } from './systems/spaceManager.js';
 
 const renderer = createRenderer(document.getElementById('app'));
@@ -28,9 +30,11 @@ const followCamera = createFollowCamera(camera);
 // 공간 전환 관리자 (마을 <-> 별장 실내)
 const spaceManager = createSpaceManager(world, player, followCamera);
 
-// 아이템 보관함, 퀘스트 시스템 및 수집 꽃 매니저 초기화
+// 아이템 보관함, 옷장, 화장대 및 퀘스트 시스템 초기화
 const inventorySystem = createInventorySystem(player);
 const inventoryUI = createInventoryUI(inventorySystem);
+const wardrobeUI = createWardrobeUI(inventorySystem);
+const vanityUI = createVanityUI(player);
 const flowerManager = createFlowerManager(scene);
 const questSystem = createQuestSystem(inventorySystem);
 const interaction = createInteractionSystem(
@@ -41,7 +45,9 @@ const interaction = createInteractionSystem(
   inventoryUI,
   spaceManager,
   world.cottage,
-  world.village.cottageEntrance
+  world.village.cottageEntrance,
+  wardrobeUI,
+  vanityUI
 );
 
 let last = performance.now();
