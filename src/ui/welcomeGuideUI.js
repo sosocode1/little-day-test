@@ -9,9 +9,9 @@ export function createWelcomeGuideUI() {
     /* 좌측 상단 조작 안내(도움말) 다시보기 버튼 */
     .welcome-help-trigger {
       position: fixed;
-      top: 24px;
+      top: 74px;
       left: 24px;
-      height: 40px;
+      height: 38px;
       padding: 0 16px;
       background: rgba(255, 253, 250, 0.94);
       backdrop-filter: blur(10px);
@@ -235,6 +235,13 @@ export function createWelcomeGuideUI() {
             <span class="key-badge">I</span>
           </div>
           <span class="key-desc">아이템 보관함(인벤토리)</span>
+        </div>
+
+        <div class="control-row">
+          <div class="key-capsule">
+            <span class="key-badge">M</span>
+          </div>
+          <span class="key-desc">월드맵 &amp; 지역 이동</span>
         </div>
 
         <div class="control-row">

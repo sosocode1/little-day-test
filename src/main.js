@@ -16,9 +16,12 @@ import { createTimeUI } from './ui/timeUI.js';
 import { createTimeSystem } from './systems/timeSystem.js';
 import { createMoonflowerEvent } from './world/moonflowerEvent.js';
 import { createSpaceManager } from './systems/spaceManager.js';
+import { createLoadingScreen } from './ui/loadingScreen.js';
+import { createAreaManager } from './world/areaManager.js';
+import { createWorldMapUI } from './ui/worldMapUI.js';
 
-// 게임 내부 시간 시스템 초기화 (기본 오전 10:00 시작, 현실 8분 = 게임 24시간)
-const timeSystem = createTimeSystem({ initialTime: 10.0, realSecondsPerDay: 480 });
+// 게임 내부 시간 시스템 초기화 (현실 시간보다 정확히 1시간 느린 실시간 1:1 진행)
+const timeSystem = createTimeSystem();
 
 const renderer = createRenderer(document.getElementById('app'));
 const camera = createCamera();
@@ -26,7 +29,7 @@ const world = createScene(timeSystem);
 const { scene, spawn, npcs } = world;
 onResize(renderer, camera);
 
-// 캐릭터 선택 UI 전까지는 ?char=male 로 임시 선택
+// 캐릭터 생성
 const charType = new URLSearchParams(location.search).get('char') === 'male' ? 'male' : 'female';
 const player = createPlayer(charType, spawn);
 scene.add(player);
@@ -34,26 +37,41 @@ scene.add(player);
 const input = createInput(renderer.domElement);
 const followCamera = createFollowCamera(camera);
 
-// 공간 전환 관리자 (마을 <-> 별장 실내)
-const spaceManager = createSpaceManager(world, player, followCamera);
+// 로딩 화면 UI 생성
+const loadingScreen = createLoadingScreen();
+
+// 시스템 참조 래퍼 (지연 바인딩용)
+let inventorySystem = null;
+let questSystem = null;
+
+// 독립 3D 지역 관리자 (마을, 속삭이는 숲, 달빛 섬, 오래된 저택)
+const areaManager = createAreaManager({
+  scene,
+  timeSystem,
+  player,
+  followCamera,
+  loadingScreen,
+  getSystems: () => ({ inventorySystem, questSystem })
+});
+
+// 공간 전환 관리자 (마을 <-> 별장 실내 및 구역 이동)
+const spaceManager = createSpaceManager(world, player, followCamera, areaManager);
 
 // 아이템 보관함, 옷장, 화장대, 조작 안내 가이드 및 퀘스트 시스템 초기화
-const inventorySystem = createInventorySystem(player);
+inventorySystem = createInventorySystem(player);
 const inventoryUI = createInventoryUI(inventorySystem);
 const wardrobeUI = createWardrobeUI(inventorySystem);
 const vanityUI = createVanityUI(player);
 const welcomeGuideUI = createWelcomeGuideUI();
 const flowerManager = createFlowerManager(scene);
-const questSystem = createQuestSystem(inventorySystem);
+questSystem = createQuestSystem(inventorySystem);
+
+// 월드맵 UI 생성 (단축키 M 및 우측 상단 플로팅 버튼)
+const worldMapUI = createWorldMapUI(areaManager, questSystem, inventorySystem);
 
 // 밤 22:00 전용 미스터리 이벤트: 사라진 달빛 꽃 (The Lost Moonflower)
 const moonflowerEvent = createMoonflowerEvent(scene, timeSystem, questSystem, inventorySystem);
 const timeUI = createTimeUI(timeSystem, moonflowerEvent);
-
-// 속삭이는 숲 수집품 시스템에 인벤토리 및 퀘스트(토스트) 시스템 연결
-if (world.forest && typeof world.forest.setSystems === 'function') {
-  world.forest.setSystems(inventorySystem, questSystem);
-}
 
 // 공간 이동 알림 (별장 진입 시 '우리 집에 돌아왔어요!' 토스트)
 spaceManager.onSpaceChange((space) => {
@@ -63,6 +81,10 @@ spaceManager.onSpaceChange((space) => {
     questSystem.ui.showToast('마을 광장으로 나왔어요! 기분 좋은 하루를 보내세요 🌿☀️', '🌿', 2500);
   } else if (space === 'forest') {
     questSystem.ui.showToast('신비로운 속삭이는 숲에 들어왔어요! 🌲✨', '🌲', 3200);
+  } else if (space === 'moonlight_island') {
+    questSystem.ui.showToast('달빛 섬에 도착했습니다! 은빛 모래사장을 거닐어보세요 🏝️✨', '🏝️', 3200);
+  } else if (space === 'old_mansion') {
+    questSystem.ui.showToast('오래된 저택 정원에 들어왔습니다! 🏰✨', '🏰', 3200);
   }
 });
 
@@ -79,8 +101,10 @@ const interaction = createInteractionSystem(
   vanityUI,
   welcomeGuideUI,
   moonflowerEvent,
-  world.forest,
-  world.village.forestEntrance
+  null,
+  world.village.forestEntrance,
+  areaManager,
+  worldMapUI
 );
 
 let last = performance.now();
@@ -100,9 +124,9 @@ renderer.setAnimationLoop((time) => {
     inventoryUI.toggle();
   }
 
-  // 동적 환경 업데이트 (낮과 밤 태양/달 궤도, 하늘/안개 색상, 가로등/창문/반딧불이)
+  // 동적 환경 업데이트 (낮과 밤 태양/달 궤도, 하늘/안개 색상, 가로등/창문/반딧불이 및 활성 지역 갱신)
   if (world.update) {
-    world.update(player.position, spaceManager.isIndoor(), dt);
+    world.update(player.position, spaceManager.isIndoor(), dt, spaceManager.getCurrentSpace(), areaManager);
   }
 
   // 상호작용 및 NPC/꽃/별장/퀘스트 업데이트

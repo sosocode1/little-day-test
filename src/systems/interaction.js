@@ -15,7 +15,9 @@ export function createInteractionSystem(
   welcomeGuideUI = null,
   moonflowerEvent = null,
   forest = null,
-  forestEntrance = null
+  forestEntrance = null,
+  areaManager = null,
+  worldMapUI = null
 ) {
   const ui = createDialogueUI();
   let nearestNpc = null;
@@ -34,7 +36,9 @@ export function createInteractionSystem(
     vanityUI,
     welcomeGuideUI,
     moonflowerEvent,
-    // 대화창, 보상 모달, 보관함, 옷장, 화장대, 환영 가이드 또는 공간 전환 중인지 여부 (플레이어 이동 잠금용)
+    areaManager,
+    worldMapUI,
+    // 대화창, 보상 모달, 보관함, 옷장, 화장대, 환영 가이드, 월드맵 또는 공간 전환 중인지 여부 (플레이어 이동 잠금용)
     isInteracting() {
       return (
         ui.isOpen() ||
@@ -43,6 +47,7 @@ export function createInteractionSystem(
         (wardrobeUI && wardrobeUI.isOpen()) ||
         (vanityUI && vanityUI.isOpen()) ||
         (welcomeGuideUI && welcomeGuideUI.isOpen()) ||
+        (worldMapUI && worldMapUI.isOpen()) ||
         (spaceManager && spaceManager.isTransitioning())
       );
     },
@@ -76,8 +81,10 @@ export function createInteractionSystem(
         }
       }
 
-      // 전환 중이거나 인벤토리/옷장/화장대가 열려 있는 경우 프롬프트 숨김 및 입력 스킵
-      if (isTransitioning || isInventoryOpen || isWardrobeOpen || isVanityOpen) {
+      const isWorldMapOpen = worldMapUI && worldMapUI.isOpen();
+
+      // 전환 중이거나 인벤토리/옷장/화장대/월드맵이 열려 있는 경우 프롬프트 숨김 및 입력 스킵
+      if (isTransitioning || isInventoryOpen || isWardrobeOpen || isVanityOpen || isWorldMapOpen) {
         ui.hidePrompt();
         return;
       }
@@ -247,43 +254,74 @@ export function createInteractionSystem(
             });
           }
         }
-      } else if (currentSpace === 'forest' && forest) {
-        // [속삭이는 숲 상호작용 후보]: 마을 복귀 출구, 숲 수집품 (버섯, 허브)
+      } else if (currentSpace === 'forest') {
+        const forestArea = (areaManager && areaManager.getCurrentAreaId() === 'forest') ? areaManager.getCurrentArea() : forest;
+        if (forestArea) {
+          // [속삭이는 숲 상호작용 후보]: 마을 복귀 출구, 숲 수집품 (버섯, 허브)
 
-        // (1) 마을 복귀 출구
-        if (forest.exitTrigger) {
-          const trig = forest.exitTrigger;
-          const dist = Math.hypot(playerPos.x - trig.x, playerPos.z - trig.z);
-          if (dist <= trig.radius) {
-            candidates.push({
-              id: 'forest_exit',
-              type: 'forest_exit',
-              dist,
-              prompt: trig.prompt || '마을 광장으로 돌아가기 🏡',
-              execute: () => {
-                if (spaceManager) spaceManager.exitForest();
-              }
-            });
-          }
-        }
-
-        // (2) 숲 수집품 (숲 이슬 버섯, 속삭임 민트 허브)
-        if (forest.collectibles && typeof forest.collectibles.getActiveItems === 'function') {
-          for (const item of forest.collectibles.getActiveItems()) {
-            const dist = Math.hypot(playerPos.x - item.x, playerPos.z - item.z);
-            if (dist <= item.interactRadius) {
-              const actionVerb = item.type === 'mushroom' ? '채취하기' : '꺾기';
+          // (1) 마을 복귀 출구
+          if (forestArea.exitTrigger) {
+            const trig = forestArea.exitTrigger;
+            const dist = Math.hypot(playerPos.x - trig.x, playerPos.z - trig.z);
+            if (dist <= trig.radius) {
               candidates.push({
-                id: item.id,
-                type: 'forest_collectible',
+                id: 'forest_exit',
+                type: 'forest_exit',
                 dist,
-                prompt: `${item.itemName} ${actionVerb} ${item.icon}`,
+                prompt: trig.prompt || '마을 광장으로 돌아가기 🏡',
                 execute: () => {
-                  item.collect();
+                  if (spaceManager) spaceManager.exitForest();
                 }
               });
             }
           }
+
+          // (2) 숲 수집품 (숲 이슬 버섯, 속삭임 민트 허브)
+          if (forestArea.collectibles && typeof forestArea.collectibles.getActiveItems === 'function') {
+            for (const item of forestArea.collectibles.getActiveItems()) {
+              const dist = Math.hypot(playerPos.x - item.x, playerPos.z - item.z);
+              if (dist <= item.interactRadius) {
+                const actionVerb = item.type === 'mushroom' ? '채취하기' : '꺾기';
+                candidates.push({
+                  id: item.id,
+                  type: 'forest_collectible',
+                  dist,
+                  prompt: `${item.itemName} ${actionVerb} ${item.icon}`,
+                  execute: () => {
+                    item.collect();
+                  }
+                });
+              }
+            }
+          }
+        }
+      } else if (currentSpace === 'moonlight_island') {
+        // [달빛 섬 상호작용 후보]: 부두 나룻배를 타고 마을 복귀
+        const dist = Math.hypot(playerPos.x - 0, playerPos.z - 11);
+        if (dist <= 2.8) {
+          candidates.push({
+            id: 'island_dock_exit',
+            type: 'island_exit',
+            dist,
+            prompt: '나룻배 타고 마을 광장으로 돌아가기 ⛵',
+            execute: () => {
+              if (spaceManager) spaceManager.travelTo('village');
+            }
+          });
+        }
+      } else if (currentSpace === 'old_mansion') {
+        // [오래된 저택 상호작용 후보]: 정원 문을 열고 마을 복귀
+        const dist = Math.hypot(playerPos.x - 0, playerPos.z - 15.5);
+        if (dist <= 2.8) {
+          candidates.push({
+            id: 'mansion_gate_exit',
+            type: 'mansion_exit',
+            dist,
+            prompt: '정원 문을 열고 마을 광장으로 돌아가기 🏡',
+            execute: () => {
+              if (spaceManager) spaceManager.travelTo('village');
+            }
+          });
         }
       }
 
