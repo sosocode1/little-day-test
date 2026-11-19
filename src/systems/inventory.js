@@ -25,7 +25,16 @@ export function createInventorySystem(player = null) {
 
   // 옷장 및 인벤토리 기본 보유 아이템 초기 등록 (퀘스트 보상 및 기본 컬렉션)
   for (const item of Object.values(ITEMS)) {
-    acquiredItems.set(item.id, item);
+    // 달빛 꽃(moonflower)은 밤 22:00 미스터리 이벤트를 완료해야 획득 (완료 기록이 있을 때만 복원)
+    if (item.id === 'moonflower') {
+      try {
+        if (typeof localStorage !== 'undefined' && localStorage.getItem('littleday_event_moonflower_done') === '1') {
+          acquiredItems.set(item.id, item);
+        }
+      } catch (e) {}
+    } else {
+      acquiredItems.set(item.id, item);
+    }
   }
 
   return {

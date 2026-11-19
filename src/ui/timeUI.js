@@ -1,7 +1,7 @@
 // LITTLE DAY 게임 시간 표시 및 빠른 시간 조작 패널 UI (Time Display & Test Controller)
 import { TimePhase } from '../systems/timeSystem.js';
 
-export function createTimeUI(timeSystem) {
+export function createTimeUI(timeSystem, moonflowerEvent = null) {
   // 스타일 주입
   const style = document.createElement('style');
   style.id = 'little-day-time-style';
@@ -229,10 +229,31 @@ export function createTimeUI(timeSystem) {
         <button class="time-speed-btn" data-scale="0">일시정지</button>
       </div>
 
-      <div class="time-hotkey-hint">단축키: 숫자 1(낮) 2(저녁) 3(밤) 4(새벽)</div>
+      ${moonflowerEvent ? `
+      <div style="margin-top:10px;border-top:1px dashed #ffd6e2;padding-top:8px;">
+        <div style="font-size:11px;font-weight:800;color:#9b6b80;margin-bottom:5px;">🌙 사라진 달빛 꽃 (밤 22:00~)</div>
+        <button class="time-event-reset-btn" style="width:100%;height:26px;border:1.5px dashed #ff9bb5;background:#fff5f8;border-radius:8px;font-size:11px;font-weight:800;color:#b0466c;cursor:pointer;transition:background 0.15s;">
+          🔄 달빛 꽃 이벤트 리셋
+        </button>
+      </div>
+      ` : ''}
+
+      <div class="time-hotkey-hint">단축키: 숫자 1(낮) 2(저녁) 3(밤 22:00) 4(새벽)</div>
     </div>
   `;
   document.body.appendChild(container);
+
+  const resetBtn = container.querySelector('.time-event-reset-btn');
+  if (resetBtn && moonflowerEvent) {
+    resetBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      moonflowerEvent.resetEvent();
+      resetBtn.textContent = '✨ 달빛 꽃 리셋 완료!';
+      setTimeout(() => {
+        resetBtn.textContent = '🔄 달빛 꽃 이벤트 리셋';
+      }, 1600);
+    });
+  }
 
   const pill = container.querySelector('.time-badge-pill');
   const phaseTag = container.querySelector('.time-phase-tag');

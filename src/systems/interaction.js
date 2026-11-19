@@ -12,7 +12,8 @@ export function createInteractionSystem(
   cottageEntrance = null,
   wardrobeUI = null,
   vanityUI = null,
-  welcomeGuideUI = null
+  welcomeGuideUI = null,
+  moonflowerEvent = null
 ) {
   const ui = createDialogueUI();
   let nearestNpc = null;
@@ -30,6 +31,7 @@ export function createInteractionSystem(
     wardrobeUI,
     vanityUI,
     welcomeGuideUI,
+    moonflowerEvent,
     // 대화창, 보상 모달, 보관함, 옷장, 화장대, 환영 가이드 또는 공간 전환 중인지 여부 (플레이어 이동 잠금용)
     isInteracting() {
       return (
@@ -205,6 +207,23 @@ export function createInteractionSystem(
                     }
                   }
                 });
+              }
+            });
+          }
+        }
+
+        // (4) 사라진 달빛 꽃 (밤 22:00 전용 미스터리 이벤트)
+        if (moonflowerEvent && moonflowerEvent.isAvailable()) {
+          const flowerPos = moonflowerEvent.getPosition();
+          const dist = Math.hypot(playerPos.x - flowerPos.x, playerPos.z - flowerPos.z);
+          if (dist <= moonflowerEvent.getInteractRadius()) {
+            candidates.push({
+              id: 'moonflower',
+              type: 'mystery_event',
+              dist,
+              prompt: '신비로운 달빛 꽃 꺾기',
+              execute: () => {
+                moonflowerEvent.collect();
               }
             });
           }

@@ -32,6 +32,24 @@ export const ITEMS = {
     }
   },
 
+  // 밤 22:00 전용 미스터리 이벤트 보상: 신비로운 달빛 꽃
+  moonflower: {
+    id: 'moonflower',
+    name: '신비로운 달빛 꽃',
+    type: ItemType.HEAD,
+    categoryName: '헤어 액세서리',
+    icon: '🪻',
+    description: '밤 22시 이후 차분한 달빛 아래 마을 외곽에서만 피어나는 신비로운 푸른빛 꽃입니다. 머리에 착용하면 은은한 달빛 기운이 감돕니다.',
+    source: '밤의 미스터리: 사라진 달빛 꽃 이벤트 획득',
+    modelType: 'moonflower',
+    colors: {
+      petal: 0x82b4ff,
+      center: 0xf0f4ff,
+      leaf: 0x7694bf,
+      glow: 0x6e9eff
+    }
+  },
+
   // 헤어 장식 컬렉션
   mint_ribbon_beret: {
     id: 'mint_ribbon_beret',
