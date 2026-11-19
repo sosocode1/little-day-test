@@ -369,6 +369,29 @@ export function createCharacter(type = 'female') {
       return sunflower;
     }
 
+    if (item.modelType === 'moonflower' || item.id === 'moonflower') {
+      const pin = new THREE.Group();
+      pin.name = `accessory_${item.id}`;
+      const petalColor = (item.colors && item.colors.petal) || 0x82b4ff;
+      const centerColor = (item.colors && item.colors.center) || 0xf0f4ff;
+      const leafColor = (item.colors && item.colors.leaf) || 0x7694bf;
+
+      // 6장의 영롱한 달빛 푸른 꽃잎
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2;
+        pin.add(ball(mat(petalColor), 0.034, [1, 1, 0.45], [Math.cos(a) * 0.035, Math.sin(a) * 0.035, 0]));
+      }
+      // 은백색 꽃술
+      pin.add(ball(mat(centerColor), 0.024, [1, 1, 0.7], [0, 0, 0.016]));
+      // 달빛 잎사귀
+      pin.add(ball(mat(leafColor), 0.02, [1.4, 0.8, 0.5], [0.036, -0.025, -0.008], [0, 0, -0.6]));
+
+      // 앞머리 좌측 곡면에 밀착
+      pin.position.set(-0.14, 0.20, 0.23);
+      pin.rotation.set(-0.35, -0.32, 0.15);
+      return pin;
+    }
+
     return null;
   }
 

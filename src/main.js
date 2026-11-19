@@ -14,11 +14,11 @@ import { createVanityUI } from './ui/vanityUI.js';
 import { createWelcomeGuideUI } from './ui/welcomeGuideUI.js';
 import { createTimeUI } from './ui/timeUI.js';
 import { createTimeSystem } from './systems/timeSystem.js';
+import { createMoonflowerEvent } from './world/moonflowerEvent.js';
 import { createSpaceManager } from './systems/spaceManager.js';
 
 // 게임 내부 시간 시스템 초기화 (기본 오전 10:00 시작, 현실 8분 = 게임 24시간)
 const timeSystem = createTimeSystem({ initialTime: 10.0, realSecondsPerDay: 480 });
-const timeUI = createTimeUI(timeSystem);
 
 const renderer = createRenderer(document.getElementById('app'));
 const camera = createCamera();
@@ -46,6 +46,10 @@ const welcomeGuideUI = createWelcomeGuideUI();
 const flowerManager = createFlowerManager(scene);
 const questSystem = createQuestSystem(inventorySystem);
 
+// 밤 22:00 전용 미스터리 이벤트: 사라진 달빛 꽃 (The Lost Moonflower)
+const moonflowerEvent = createMoonflowerEvent(scene, timeSystem, questSystem, inventorySystem);
+const timeUI = createTimeUI(timeSystem, moonflowerEvent);
+
 // 공간 이동 알림 (별장 진입 시 '우리 집에 돌아왔어요!' 토스트)
 spaceManager.onSpaceChange((space) => {
   if (space === 'cottage') {
@@ -66,7 +70,8 @@ const interaction = createInteractionSystem(
   world.village.cottageEntrance,
   wardrobeUI,
   vanityUI,
-  welcomeGuideUI
+  welcomeGuideUI,
+  moonflowerEvent
 );
 
 let last = performance.now();
@@ -77,6 +82,9 @@ renderer.setAnimationLoop((time) => {
   // 게임 시간 및 시간 표시 UI 업데이트
   timeSystem.update(dt);
   timeUI.update();
+
+  // 밤 22:00 미스터리 이벤트 갱신 (시간 체크, 푸른빛 오라 및 반딧불이 애니메이션)
+  moonflowerEvent.update(dt, spaceManager.isIndoor());
 
   // I 키 입력 시 아이템 보관함 토글
   if (input.consumeInventoryToggle()) {
