@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import { createDialogueUI } from '../ui/dialogueUI.js';
 import { QuestState } from '../data/quest.js';
 
@@ -25,7 +26,61 @@ export function createInteractionSystem(
   let activeNpc = null;
   let cooldownTimer = 0;
 
+  // ---- 마우스/터치 입력 → E키와 동일한 실행 경로 (update 안의 단일 execute) ----
+  // 클릭은 즉시 실행하지 않고 요청만 기록한다. 다음 update 에서 현재 사거리 안의 후보에 한해,
+  // E키 입력과 동일한 조건/쿨다운으로 한 번만 실행된다 (동시 입력해도 중복 실행 없음).
+  let pendingPromptClick = false;
+  let pendingWorldClick = null; // { id, type }
+  let lastCandidates = [];
+  const raycaster = new THREE.Raycaster();
+  const ndc = new THREE.Vector2();
+
+  ui.setPromptHandler(() => {
+    pendingPromptClick = true;
+  });
+
+  // 화면 좌표에서 사거리 안 후보의 3D 오브젝트를 찾는다
+  function pickCandidate(domElement, camera, e) {
+    const objs = lastCandidates.filter((c) => c.object && c.object.visible !== false);
+    if (!objs.length) return null;
+    const rect = domElement.getBoundingClientRect();
+    ndc.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
+    raycaster.setFromCamera(ndc, camera);
+    let best = null;
+    let bestDist = Infinity;
+    for (const c of objs) {
+      const hit = raycaster.intersectObject(c.object, true)[0];
+      if (hit && hit.distance < bestDist) {
+        best = c;
+        bestDist = hit.distance;
+      }
+    }
+    return best;
+  }
+
+  function bindPointer(domElement, camera) {
+    let down = null;
+    domElement.addEventListener('pointerdown', (e) => {
+      down = { x: e.clientX, y: e.clientY, t: performance.now() };
+    });
+    // 드래그(카메라 회전)와 클릭 구분: 거의 움직이지 않은 짧은 입력만 클릭으로 인정
+    domElement.addEventListener('pointerup', (e) => {
+      if (!down) return;
+      const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y);
+      const dur = performance.now() - down.t;
+      down = null;
+      if (moved > 6 || dur > 500) return;
+      const c = pickCandidate(domElement, camera, e);
+      if (c) pendingWorldClick = { id: c.id, type: c.type };
+    });
+    domElement.addEventListener('pointermove', (e) => {
+      if (down) return;
+      domElement.style.cursor = pickCandidate(domElement, camera, e) ? 'pointer' : '';
+    });
+  }
+
   return {
+    bindPointer,
     ui,
     npcs,
     flowerManager,
@@ -52,6 +107,12 @@ export function createInteractionSystem(
       );
     },
     update(playerPos, input, dt) {
+      // 이전 프레임에 쌓인 클릭 요청 소모 (대화/모달 등으로 early return 되면 폐기됨)
+      const promptClicked = pendingPromptClick;
+      const worldClick = pendingWorldClick;
+      pendingPromptClick = false;
+      pendingWorldClick = null;
+      lastCandidates = [];
       if (welcomeGuideUI && welcomeGuideUI.isOpen()) {
         ui.hidePrompt();
         return;
@@ -180,6 +241,7 @@ export function createInteractionSystem(
               candidates.push({
                 id: flower.id || 'flower',
                 type: 'flower',
+                object: flower.model?.root,
                 dist,
                 prompt: '분홍색 꽃 꺾기',
                 execute: () => {
@@ -197,6 +259,7 @@ export function createInteractionSystem(
             candidates.push({
               id: npc.id || npc.type,
               type: 'npc',
+              object: npc.root,
               dist,
               prompt: `${npc.data.name}와 대화하기`,
               execute: () => {
@@ -254,6 +317,22 @@ export function createInteractionSystem(
             });
           }
         }
+        // (6) 부두의 배 / 선착장 → 섬 선택 화면
+        const dock = areaManager && typeof areaManager.getVillageDock === 'function' ? areaManager.getVillageDock() : null;
+        if (dock && worldMapUI) {
+          const dist = Math.hypot(playerPos.x - dock.x, playerPos.z - dock.z);
+          if (dist <= dock.radius) {
+            candidates.push({
+              id: 'village_dock',
+              type: 'dock',
+              dist,
+              prompt: dock.prompt,
+              execute: () => {
+                worldMapUI.open({ canTravel: true });
+              }
+            });
+          }
+        }
       } else if (currentSpace === 'forest') {
         const forestArea = (areaManager && areaManager.getCurrentAreaId() === 'forest') ? areaManager.getCurrentArea() : forest;
         if (forestArea) {
@@ -285,6 +364,7 @@ export function createInteractionSystem(
                 candidates.push({
                   id: item.id,
                   type: 'forest_collectible',
+                  object: item.modelObj?.root,
                   dist,
                   prompt: `${item.itemName} ${actionVerb} ${item.icon}`,
                   execute: () => {
@@ -335,11 +415,15 @@ export function createInteractionSystem(
 
       // 거리 기준 오름차순 정렬하여 가장 가까운 대상 1개만 선택
       candidates.sort((a, b) => a.dist - b.dist);
-      const target = candidates[0];
+      lastCandidates = candidates;
+
+      // 월드 클릭은 클릭한 대상(사거리 안 후보), 그 외(E키/프롬프트 클릭)는 가장 가까운 대상
+      const clicked = worldClick ? candidates.find((c) => c.id === worldClick.id && c.type === worldClick.type) : null;
+      const target = clicked || candidates[0];
 
       ui.showPrompt(target.prompt);
 
-      if (interactPressed && cooldownTimer <= 0) {
+      if ((interactPressed || promptClicked || clicked) && cooldownTimer <= 0) {
         cooldownTimer = 0.4;
         target.execute();
       }

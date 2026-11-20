@@ -51,6 +51,7 @@ const areaManager = createAreaManager({
   player,
   followCamera,
   loadingScreen,
+  village: world.village,
   getSystems: () => ({ inventorySystem, questSystem })
 });
 
@@ -106,6 +107,9 @@ const interaction = createInteractionSystem(
   areaManager,
   worldMapUI
 );
+
+// 마우스/터치로 3D 대상 클릭 시 상호작용 (E키와 동일한 실행 경로)
+interaction.bindPointer(renderer.domElement, camera);
 
 let last = performance.now();
 renderer.setAnimationLoop((time) => {

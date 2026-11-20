@@ -24,13 +24,28 @@ export function createDialogueUI() {
       color: #6a4c58;
       pointer-events: none;
       user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
       opacity: 0;
-      transition: opacity 0.2s ease, transform 0.2s ease;
+      transition: opacity 0.2s ease, transform 0.2s ease, background 0.15s ease, box-shadow 0.15s ease;
       z-index: 100;
     }
     .interaction-prompt.visible {
       opacity: 1;
       transform: translateX(-50%) translateY(0);
+      pointer-events: auto;
+      cursor: pointer;
+    }
+    .interaction-prompt.visible:hover,
+    .interaction-prompt.visible:focus-visible {
+      background: #fff;
+      border-color: #ff9fb8;
+      box-shadow: 0 10px 26px rgba(220, 110, 150, 0.35);
+      transform: translateX(-50%) translateY(-2px);
+      outline: none;
+    }
+    .interaction-prompt.visible:active {
+      transform: translateX(-50%) translateY(0) scale(0.97);
     }
     .prompt-key {
       background: #ffb3c8;
@@ -132,7 +147,16 @@ export function createDialogueUI() {
   const promptEl = document.createElement('div');
   promptEl.className = 'interaction-prompt';
   promptEl.innerHTML = `<span class="prompt-key">E</span> <span class="prompt-text">대화하기</span>`;
+  promptEl.setAttribute('role', 'button');
+  promptEl.tabIndex = 0;
   document.body.appendChild(promptEl);
+
+  // 프롬프트 클릭/터치 → 키보드 E와 동일한 상호작용 실행 요청 (interaction.js 에서 등록)
+  let promptHandler = null;
+  promptEl.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (promptHandler && promptEl.classList.contains('visible')) promptHandler();
+  });
 
   // 대화창 모달
   const modalEl = document.createElement('div');
@@ -199,6 +223,9 @@ export function createDialogueUI() {
       }
       promptEl.querySelector('.prompt-text').textContent = text;
       promptEl.classList.add('visible');
+    },
+    setPromptHandler(fn) {
+      promptHandler = fn;
     },
     hidePrompt() {
       promptEl.classList.remove('visible');

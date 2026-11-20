@@ -89,8 +89,8 @@ export function createSpaceManager(sceneData, player, followCamera, areaManager 
     // 속삭이는 숲에서 마을로 나가기
     async exitForest(onDone = null) {
       if (areaManager) {
-        const returnPos = village?.forestEntrance?.returnPos || new THREE.Vector3(-3.8, 0, -18.8);
-        const returnYaw = village?.forestEntrance?.returnYaw || Math.PI;
+        const returnPos = village?.forestEntrance?.returnPos || new THREE.Vector3(-3.8, 0, -16.2);
+        const returnYaw = village?.forestEntrance?.returnYaw ?? 0;
         await areaManager.travelTo('village', returnPos, returnYaw);
         if (onDone) onDone();
       }

@@ -179,9 +179,13 @@ export function createVillage() {
     x: -3.8,
     z: -20.5,
     radius: 1.8,
-    returnPos: new THREE.Vector3(-3.8, 0, -18.8),
-    returnYaw: Math.PI // 마을 광장을 바라보는 각도
+    returnPos: new THREE.Vector3(-3.8, 0, -16.2),
+    returnYaw: 0 // 카메라가 플레이어 남쪽(광장 쪽)에서 입구 아치를 바라봄 (안내판이 시야를 가리지 않음)
   };
+
+  // ----- 부두 (섬 이동용 배 + 선착장) : 서쪽 연못 항구 -----
+  group.add(createPathSegment([-1.5, 19.2], [-6.5, 19.2], 2)); // 입구 도로 ~ 부두
+  const dock = createDock(group, colliders);
 
   return {
     group,
@@ -191,6 +195,111 @@ export function createVillage() {
     npcs,
     doorFronts,
     cottageEntrance,
-    forestEntrance
+    forestEntrance,
+    dock
+  };
+}
+
+// 서쪽 항구: 연못 + 나무 선착장 + 작은 클레이풍 돛단배. 플레이어는 선착장 끝에서 E키로 승선한다.
+const DOCK_POND = { x: -11, z: 19.2, r: 2.2 };
+
+function createDock(group, colliders) {
+  const dockGroup = new THREE.Group();
+  dockGroup.name = 'village-dock';
+  const { x: px, z: pz, r } = DOCK_POND;
+  const mat = (color, opts = {}) =>
+    new THREE.MeshStandardMaterial({ color, roughness: 0.85, flatShading: true, ...opts });
+
+  // 물
+  const water = new THREE.Mesh(
+    new THREE.CylinderGeometry(r, r, 0.08, 36),
+    mat(0x7fd0e8, { roughness: 0.35, transparent: true, opacity: 0.92 })
+  );
+  water.position.set(px, 0.04, pz);
+  dockGroup.add(water);
+
+  // 연못 가장자리 돌 (선착장이 닿는 동쪽 입구는 비워 둔다)
+  const stoneMat = mat(0xd9d2c8);
+  for (let i = 0; i < 18; i++) {
+    const a = (i / 18) * Math.PI * 2;
+    if (Math.abs(Math.atan2(Math.sin(a), Math.cos(a))) < 0.42) continue; // 동쪽(+x) 입구
+    const sx = px + Math.cos(a) * (r + 0.25);
+    const sz = pz + Math.sin(a) * (r + 0.25);
+    const stone = new THREE.Mesh(new THREE.DodecahedronGeometry(0.42, 0), stoneMat);
+    stone.position.set(sx, 0.2, sz);
+    stone.scale.y = 0.7;
+    stone.rotation.y = i;
+    dockGroup.add(stone);
+    colliders.push({ type: 'circle', x: sx, z: sz, r: 0.5 });
+  }
+  // 입구 양옆 물가 보호 콜라이더 (선착장 폭만 통과)
+  for (const dz of [-1.35, 1.35]) {
+    colliders.push({ type: 'box', x: px + r - 1.8, z: pz + dz, hw: 2.2, hd: 0.3, rot: 0 });
+  }
+  colliders.push({ type: 'box', x: px - 0.2, z: pz, hw: 0.3, hd: 1.4, rot: 0 }); // 선착장 끝 막음
+
+  // 선착장 판자 (x: -13.5 ~ -18.6)
+  const woodMat = mat(0xd9a56e);
+  const darkWood = mat(0xa8744a);
+  const startX = -6.5;
+  const endX = px + 0.9;
+  for (let x = startX; x >= endX; x -= 0.55) {
+    const plank = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.12, 2.0), woodMat);
+    plank.position.set(x, 0.16, pz);
+    dockGroup.add(plank);
+  }
+  for (let x = startX; x >= endX; x -= 1.7) {
+    for (const dz of [-0.95, 0.95]) {
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 0.7, 8), darkWood);
+      post.position.set(x, 0.3, pz + dz);
+      dockGroup.add(post);
+    }
+  }
+
+  // 배 (선착장 끝 오른쪽 물 위)
+  const boat = new THREE.Group();
+  boat.name = 'village-boat';
+  const hull = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.5, 1.2), mat(0xff98b2));
+  hull.position.y = 0.25;
+  const hullTop = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.16, 0.9), mat(0xffd6e2));
+  hullTop.position.y = 0.55;
+  const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 1.9, 8), darkWood);
+  mast.position.set(-0.1, 1.45, 0);
+  const sailShape = new THREE.Shape();
+  sailShape.moveTo(0, 0);
+  sailShape.lineTo(1.0, 0);
+  sailShape.lineTo(0, 1.5);
+  const sail = new THREE.Mesh(
+    new THREE.ShapeGeometry(sailShape),
+    mat(0xfff7e8, { side: THREE.DoubleSide })
+  );
+  sail.position.set(0, 1.0, 0);
+  sail.rotation.y = Math.PI / 2;
+  const flag = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.4, 3), mat(0x5dade2));
+  flag.position.set(-0.1, 2.5, 0);
+  flag.rotation.z = Math.PI / 2;
+  boat.add(hull, hullTop, mast, sail, flag);
+  boat.position.set(px - 1.4, 0.05, pz + 0.2);
+  dockGroup.add(boat);
+  colliders.push({ type: 'circle', x: px - 1.4, z: pz + 0.2, r: 1.2 });
+
+  // 부두 표지판
+  const sign = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.5, 0.08), mat(0xfff0d6));
+  sign.position.set(startX + 0.6, 1.2, pz - 1.4);
+  const signPost = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.1, 8), darkWood);
+  signPost.position.set(startX + 0.6, 0.55, pz - 1.4);
+  dockGroup.add(sign, signPost);
+
+  group.add(dockGroup);
+
+  return {
+    x: px + 0.6,
+    z: pz,
+    radius: 3.0,
+    prompt: '배를 타고 섬으로 떠나기 ⛵',
+    // 섬에서 돌아왔을 때 도착 위치 (선착장 입구, 동쪽 육지를 바라봄)
+    returnPos: new THREE.Vector3(startX + 0.3, 0.16, pz),
+    returnYaw: -Math.PI / 2,
+    boat
   };
 }
