@@ -4,12 +4,40 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>LITTLE DAY</title>
+    <!-- 1차: Pretendard CDN 폰트 (실패 시 로컬 fallback 실행) -->
+    <link
+      id="pretendard-cdn"
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css"
+      onerror="window.__loadLocalPretendard && window.__loadLocalPretendard('CDN CSS 로딩 실패')"
+    />
+    <script>
+      // Pretendard 로컬 Fallback 로더
+      window.__loadLocalPretendard = function (reason) {
+        if (document.getElementById('pretendard-local')) return;
+        console.warn(`[Font Fallback] ${reason} -> 로컬 파일(/fonts/pretendard/pretendard.css)로 대체합니다.`);
+        const localLink = document.createElement('link');
+        localLink.id = 'pretendard-local';
+        localLink.rel = 'stylesheet';
+        localLink.href = '/fonts/pretendard/pretendard.css';
+        document.head.appendChild(localLink);
+      };
+
+      // CDN CSS는 로드되었으나 CDN WOFF2 파일 다운로드 실패 시 로컬 폰트로 대체 감지
+      if (document.fonts) {
+        document.fonts.addEventListener('loadingerror', function (event) {
+          if (event.fontface && event.fontface.family.includes('Pretendard')) {
+            window.__loadLocalPretendard('CDN WOFF2 폰트 파일 로딩 실패');
+          }
+        });
+      }
+    </script>
     <style>
       html, body { margin: 0; height: 100%; overflow: hidden; background: #fdf3f7; }
       #app { position: fixed; inset: 0; }
       #title {
         position: fixed; top: 24px; left: 0; right: 0; text-align: center;
-        font: 700 2rem/1 "Segoe UI", sans-serif; letter-spacing: 0.3em;
+        font: 700 2rem/1 "Pretendard", "Segoe UI", sans-serif; letter-spacing: 0.3em;
         color: #fff; text-shadow: 0 2px 8px rgba(180, 120, 160, 0.6);
         pointer-events: none; user-select: none;
       }
