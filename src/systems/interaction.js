@@ -110,9 +110,11 @@ export function createInteractionSystem(
       // -----------------------------------------------------------
       const candidates = [];
 
-      if (currentSpace === 'cottage' && cottage && cottage.triggers) {
+      const activeCottage = cottage || (areaManager && typeof areaManager.getCottage === 'function' ? areaManager.getCottage() : null);
+
+      if (currentSpace === 'cottage' && activeCottage && activeCottage.triggers) {
         // [별장 실내 상호작용 후보]: 출입구(나가기), 옷장, 거울, 침대
-        for (const trig of Object.values(cottage.triggers)) {
+        for (const trig of Object.values(activeCottage.triggers)) {
           const dist = Math.hypot(playerPos.x - trig.x, playerPos.z - trig.z);
           if (dist <= trig.radius) {
             candidates.push({

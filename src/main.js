@@ -55,6 +55,7 @@ const areaManager = createAreaManager({
 });
 
 // 공간 전환 관리자 (마을 <-> 별장 실내 및 구역 이동)
+world.cottage = areaManager.getCottage();
 const spaceManager = createSpaceManager(world, player, followCamera, areaManager);
 
 // 아이템 보관함, 옷장, 화장대, 조작 안내 가이드 및 퀘스트 시스템 초기화
@@ -95,7 +96,7 @@ const interaction = createInteractionSystem(
   player,
   inventoryUI,
   spaceManager,
-  world.cottage,
+  areaManager.getCottage(),
   world.village.cottageEntrance,
   wardrobeUI,
   vanityUI,
