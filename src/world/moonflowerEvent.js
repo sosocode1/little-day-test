@@ -183,6 +183,17 @@ export function createMoonflowerEvent(scene, timeSystem, questSystem, inventoryS
       return true;
     },
 
+    isCompleted() {
+      return isCompleted;
+    },
+
+    setCompleted(val = true) {
+      isCompleted = Boolean(val);
+      if (isCompleted) {
+        root.visible = false;
+      }
+    },
+
     // 개발/테스트용 이벤트 리셋 메서드
     resetEvent() {
       isCompleted = false;

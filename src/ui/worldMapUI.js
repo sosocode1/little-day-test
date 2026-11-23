@@ -2,6 +2,11 @@
 import { AREA_CONFIGS } from '../world/areaManager.js';
 
 export function createWorldMapUI(areaManager, questSystem, inventorySystem) {
+  // 기존 잔존 요소 정리 (HMR 등 중복 방지)
+  const existingStyle = document.getElementById('little-day-worldmap-style');
+  if (existingStyle) existingStyle.remove();
+  document.querySelectorAll('.worldmap-open-pill, .worldmap-overlay').forEach((el) => el.remove());
+
   const style = document.createElement('style');
   style.id = 'little-day-worldmap-style';
   style.textContent = `
@@ -10,7 +15,7 @@ export function createWorldMapUI(areaManager, questSystem, inventorySystem) {
       position: fixed;
       top: 24px;
       right: 24px;
-      z-index: 120;
+      z-index: 500;
       height: 40px;
       padding: 0 16px;
       background: rgba(255, 253, 250, 0.94);
@@ -28,6 +33,10 @@ export function createWorldMapUI(areaManager, questSystem, inventorySystem) {
       transition: all 0.15s ease;
       font-family: "Pretendard", "Segoe UI", sans-serif;
       user-select: none;
+      pointer-events: auto !important;
+    }
+    .worldmap-open-pill * {
+      pointer-events: none;
     }
     .worldmap-open-pill:hover {
       transform: translateY(-1px);
@@ -54,13 +63,15 @@ export function createWorldMapUI(areaManager, questSystem, inventorySystem) {
       z-index: 550;
       opacity: 0;
       pointer-events: none;
-      transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      visibility: hidden;
+      transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.25s;
       font-family: "Pretendard", "Segoe UI", sans-serif;
       user-select: none;
     }
     .worldmap-overlay.visible {
       opacity: 1;
       pointer-events: auto;
+      visibility: visible;
     }
 
     .worldmap-window {
@@ -414,10 +425,27 @@ export function createWorldMapUI(areaManager, questSystem, inventorySystem) {
     else open();
   }
 
-  openBtn.addEventListener('click', toggle);
-  closeBtn.addEventListener('click', close);
+  openBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggle();
+  });
+  openBtn.addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+  });
+
+  closeBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    close();
+  });
+  closeBtn.addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+  });
+
   overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) close();
+    if (e.target === overlay) {
+      e.stopPropagation();
+      close();
+    }
   });
 
   // M 키 단축키로 월드맵 토글

@@ -153,6 +153,44 @@ export function createInventorySystem(player = null) {
       } else {
         return this.equip(itemId);
       }
+    },
+
+    setPlayer(p) {
+      player = p;
+    },
+
+    getStateData() {
+      return {
+        acquiredItemIds: Array.from(acquiredItems.keys()),
+        equipped: { ...equipped }
+      };
+    },
+
+    restore(savedData) {
+      if (!savedData) return;
+
+      // 1. 보유 아이템 복원
+      if (Array.isArray(savedData.acquiredItemIds)) {
+        for (const id of savedData.acquiredItemIds) {
+          const item = getItem(id);
+          if (item) {
+            acquiredItems.set(id, item);
+          }
+        }
+      }
+
+      // 2. 장착 슬롯 복원
+      if (savedData.equipped && typeof savedData.equipped === 'object') {
+        for (const [slot, itemId] of Object.entries(savedData.equipped)) {
+          if (itemId && acquiredItems.has(itemId)) {
+            this.equip(itemId);
+          } else if (!itemId && equipped[slot]) {
+            this.unequip(slot);
+          }
+        }
+      }
+
+      notify();
     }
   };
 }

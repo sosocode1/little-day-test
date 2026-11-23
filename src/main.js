@@ -19,6 +19,7 @@ import { createSpaceManager } from './systems/spaceManager.js';
 import { createLoadingScreen } from './ui/loadingScreen.js';
 import { createAreaManager } from './world/areaManager.js';
 import { createWorldMapUI } from './ui/worldMapUI.js';
+import { createSaveSystem } from './systems/saveSystem.js';
 
 // 게임 내부 시간 시스템 초기화 (현실 시간보다 정확히 1시간 느린 실시간 1:1 진행)
 const timeSystem = createTimeSystem();
@@ -74,8 +75,36 @@ const worldMapUI = createWorldMapUI(areaManager, questSystem, inventorySystem);
 const moonflowerEvent = createMoonflowerEvent(scene, timeSystem, questSystem, inventorySystem);
 const timeUI = createTimeUI(timeSystem, moonflowerEvent);
 
-// 공간 이동 알림 (별장 진입 시 '우리 집에 돌아왔어요!' 토스트)
+// 통합 세이브 시스템 초기화 및 바인딩
+const saveSystem = createSaveSystem({
+  player,
+  areaManager,
+  questSystem,
+  inventorySystem,
+  timeSystem,
+  moonflowerEvent,
+  flowerManager
+});
+
+// 외형 스타일링 변경 시 자동 저장
+vanityUI.onChange(() => saveSystem.save());
+
+// 주기적 자동 저장 (25초 간격)
+setInterval(() => saveSystem.save(), 25000);
+
+// 세이브 데이터 복원 (외형, 장착, 퀘스트, 위치/지역)
+saveSystem.restore().then(() => {
+  if (flowerManager && questSystem && typeof flowerManager.syncCollected === 'function') {
+    flowerManager.syncCollected(questSystem.getCollectedFlowerIds());
+  }
+  if (followCamera && typeof followCamera.snap === 'function') {
+    followCamera.snap(player.position);
+  }
+});
+
+// 공간 이동 알림 (별장 진입 시 '우리 집에 돌아왔어요!' 토스트) 및 자동 저장
 spaceManager.onSpaceChange((space) => {
+  saveSystem.save();
   if (space === 'cottage') {
     questSystem.ui.showToast('우리 집에 돌아왔어요! 편안하게 쉬어가세요 🏡✨', '🏡', 3000);
   } else if (space === 'village') {
@@ -105,7 +134,9 @@ const interaction = createInteractionSystem(
   null,
   world.village.forestEntrance,
   areaManager,
-  worldMapUI
+  worldMapUI,
+  timeSystem,
+  saveSystem
 );
 
 let last = performance.now();

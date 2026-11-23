@@ -179,14 +179,16 @@ export function createVillage() {
     x: -3.8,
     z: -20.5,
     radius: 1.8,
-    returnPos: new THREE.Vector3(-3.8, 0, -18.8),
+    // 아치 지붕에 카메라가 가려지지 않도록 산책로 앞쪽으로 스폰 위치 조정
+    returnPos: new THREE.Vector3(-2.0, 0, -14.0),
     returnYaw: Math.PI // 마을 광장을 바라보는 각도
   };
 
   return {
     group,
     colliders,
-    spawn: new THREE.Vector3(0, 0, 18),
+    // 월드맵 귀환 시 남쪽 게이트 아치 지붕에 카메라가 가려지지 않도록 안전한 산책로 위치로 조정
+    spawn: new THREE.Vector3(0, 0, 11),
     houses,
     npcs,
     doorFronts,

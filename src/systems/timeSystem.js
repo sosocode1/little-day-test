@@ -179,6 +179,20 @@ export function createTimeSystem() {
       notifyMode();
     },
 
+    nextDay() {
+      currentDay++;
+      notifyHour(lastHour);
+      return currentDay;
+    },
+
+    getDay() {
+      return currentDay;
+    },
+
+    setDay(day) {
+      currentDay = Math.max(1, Math.floor(day));
+    },
+
     togglePause() {
       isPaused = !isPaused;
       return isPaused;

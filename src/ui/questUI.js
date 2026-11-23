@@ -1,13 +1,18 @@
 // 퀘스트 진행 상태 패널 및 수집/보상 알림 UI
 export function createQuestUI() {
+  // 기존 잔존 요소 정리 (HMR 등 중복 방지)
+  const existingStyle = document.getElementById('little-day-quest-style');
+  if (existingStyle) existingStyle.remove();
+  document.querySelectorAll('.quest-panel, .collect-toast, .reward-modal-backdrop').forEach((el) => el.remove());
+
   // 스타일 주입
   const style = document.createElement('style');
   style.id = 'little-day-quest-style';
   style.textContent = `
-    /* 우측 상단 퀘스트 패널 */
+    /* 우측 상단 퀘스트 패널 (월드맵 버튼 아래 배치) */
     .quest-panel {
       position: fixed;
-      top: 24px;
+      top: 76px;
       right: 24px;
       width: 250px;
       background: rgba(255, 253, 250, 0.94);

@@ -17,7 +17,9 @@ export function createInteractionSystem(
   forest = null,
   forestEntrance = null,
   areaManager = null,
-  worldMapUI = null
+  worldMapUI = null,
+  timeSystem = null,
+  saveSystem = null
 ) {
   const ui = createDialogueUI();
   let nearestNpc = null;
@@ -38,6 +40,12 @@ export function createInteractionSystem(
     moonflowerEvent,
     areaManager,
     worldMapUI,
+    setTimeSystem(ts) {
+      timeSystem = ts;
+    },
+    setSaveSystem(ss) {
+      saveSystem = ss;
+    },
     // 대화창, 보상 모달, 보관함, 옷장, 화장대, 환영 가이드, 월드맵 또는 공간 전환 중인지 여부 (플레이어 이동 잠금용)
     isInteracting() {
       return (
@@ -99,6 +107,7 @@ export function createInteractionSystem(
 
       // 4. 대화창이 열려 있는 경우
       if (isDialogueOpen) {
+        ui.hidePrompt();
         if (interactPressed) {
           ui.advance();
         }
@@ -143,12 +152,22 @@ export function createInteractionSystem(
                     inventoryUI.selectTab('head');
                   }
                 } else if (trig.id === 'bed') {
-                  // 침대 휴식 기능 (화면 암전 및 휴식 메시지 표시, 퀘스트 메시지 절대 출력 안함)
+                  // 침대 휴식 기능 (화면 암전 후 다음 날 아침 08:00으로 전환 및 휴식 메시지 표시)
                   if (spaceManager && typeof spaceManager.rest === 'function') {
-                    spaceManager.rest();
+                    spaceManager.rest(async () => {
+                      if (timeSystem && typeof timeSystem.setTime === 'function') {
+                        timeSystem.setTime(8, 0); // 다음 날 오전 08:00 설정
+                        if (typeof timeSystem.nextDay === 'function') {
+                          timeSystem.nextDay();
+                        }
+                      }
+                      if (saveSystem && typeof saveSystem.save === 'function') {
+                        saveSystem.save();
+                      }
+                    });
                   }
                   if (questSystem && questSystem.ui && typeof questSystem.ui.showToast === 'function') {
-                    questSystem.ui.showToast('포근한 침대에서 편안하게 휴식을 취했습니다. 기운이 회복되었습니다! ✨', '🛏️', 2600);
+                    questSystem.ui.showToast('포근한 침대에서 푹 쉬고 새로운 아침(08:00)을 맞이했습니다! ✨', '🛏️', 2800);
                   }
                 }
               }
@@ -177,6 +196,7 @@ export function createInteractionSystem(
         // (2) 꽃 수집
         if (flowerManager && questSystem && questSystem.getState() === QuestState.IN_PROGRESS) {
           for (const flower of flowerManager.getActiveFlowers()) {
+            if (questSystem.isFlowerCollected && questSystem.isFlowerCollected(flower.id)) continue;
             const dist = Math.hypot(playerPos.x - flower.position.x, playerPos.z - flower.position.z);
             if (dist <= flower.interactRadius) {
               candidates.push({
@@ -208,6 +228,7 @@ export function createInteractionSystem(
                 }
                 const currentQuestState = questSystem ? questSystem.getState() : null;
 
+                ui.hidePrompt();
                 ui.openDialogue(npc, () => {
                   activeNpc = null;
                   cooldownTimer = 0.4;

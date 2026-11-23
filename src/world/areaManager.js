@@ -151,6 +151,21 @@ export function createAreaManager({
     unlockArea(areaId) {
       setUnlocked(areaId, true);
     },
+    getUnlockedAreas() {
+      const list = [];
+      for (const id of Object.keys(AREA_CONFIGS)) {
+        if (isUnlocked(id)) list.push(id);
+      }
+      return list;
+    },
+    restoreUnlockedAreas(areas) {
+      if (!Array.isArray(areas)) return;
+      for (const id of areas) {
+        if (AREA_CONFIGS[id]) {
+          setUnlocked(id, true);
+        }
+      }
+    },
     onAreaChange(cb) {
       areaChangeListeners.add(cb);
       return () => areaChangeListeners.delete(cb);

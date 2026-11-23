@@ -125,6 +125,20 @@ export function createFlowerManager(scene) {
     getActiveFlowers() {
       return flowers.filter((f) => !f.isCollected || f.collectProgress < 1);
     },
+    // 세이브 복원 시 이미 수집된 꽃 동기화 (재생성 및 중복 수집 방지)
+    syncCollected(collectedFlowerIds) {
+      if (!collectedFlowerIds) return;
+      const set = new Set(Array.isArray(collectedFlowerIds) ? collectedFlowerIds : Array.from(collectedFlowerIds));
+      for (const flower of flowers) {
+        if (set.has(flower.id)) {
+          flower.isCollected = true;
+          flower.collectProgress = 1;
+          if (flower.model && flower.model.root && flower.model.root.parent) {
+            flower.model.root.parent.remove(flower.model.root);
+          }
+        }
+      }
+    },
     update(dt) {
       time += dt;
 

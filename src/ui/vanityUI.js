@@ -315,6 +315,11 @@ export function createVanityUI(player) {
 
   let isOpen = false;
   const toggleCallbacks = [];
+  const changeCallbacks = [];
+
+  function notifyChange() {
+    for (const cb of changeCallbacks) cb();
+  }
 
   function hexToCss(c) {
     return '#' + c.toString(16).padStart(6, '0');
@@ -339,6 +344,7 @@ export function createVanityUI(player) {
         if (player && player.setAppearance) {
           player.setAppearance({ hairColor: item.color });
           renderPalette();
+          notifyChange();
         }
       });
       hairPaletteEl.appendChild(dot);
@@ -355,6 +361,7 @@ export function createVanityUI(player) {
         if (player && player.setAppearance) {
           player.setAppearance({ skinColor: item.color });
           renderPalette();
+          notifyChange();
         }
       });
       skinPaletteEl.appendChild(dot);
@@ -371,6 +378,7 @@ export function createVanityUI(player) {
         if (player && player.setAppearance) {
           player.setAppearance({ eyeColor: item.color });
           renderPalette();
+          notifyChange();
         }
       });
       eyePaletteEl.appendChild(dot);
@@ -384,6 +392,7 @@ export function createVanityUI(player) {
       if (player && player.setAppearance) {
         player.setAppearance({ hairStyle: styleType });
         renderPalette();
+        notifyChange();
       }
     });
   });
@@ -436,6 +445,13 @@ export function createVanityUI(player) {
     },
     onToggle(cb) {
       toggleCallbacks.push(cb);
+    },
+    onChange(cb) {
+      changeCallbacks.push(cb);
+      return () => {
+        const idx = changeCallbacks.indexOf(cb);
+        if (idx >= 0) changeCallbacks.splice(idx, 1);
+      };
     }
   };
 }

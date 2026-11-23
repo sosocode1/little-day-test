@@ -369,6 +369,7 @@ export function createInventoryUI(inventorySystem) {
         <button class="inv-tab active" data-type="all">전체</button>
         <button class="inv-tab" data-type="${ItemType.HEAD}">헤어 액세서리</button>
         <button class="inv-tab" data-type="${ItemType.OUTFIT}">의상</button>
+        <button class="inv-tab" data-type="${ItemType.SHOES}">신발</button>
         <button class="inv-tab" data-type="${ItemType.COLLECTIBLE}">수집품</button>
       </div>
       <div class="inv-body">
