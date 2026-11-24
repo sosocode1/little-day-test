@@ -32,6 +32,18 @@ export function createInventorySystem(player = null) {
           acquiredItems.set(item.id, item);
         }
       } catch (e) {}
+    } else if (item.id === 'moonlight_brooch') {
+      // 특별 아이템 '달빛 브로치'는 퀘스트 완료 시 1개 지급 (기존 완료/지급 기록이 있을 때만 복원)
+      try {
+        if (
+          typeof localStorage !== 'undefined' &&
+          (localStorage.getItem('littleday_item_moonlight_brooch') === '1' ||
+            localStorage.getItem('littleday_quest_reward_claimed') === '1' ||
+            localStorage.getItem('littleday_quest_completed') === '1')
+        ) {
+          acquiredItems.set(item.id, item);
+        }
+      } catch (e) {}
     } else if (item.type === ItemType.COLLECTIBLE) {
       // 숲 수집품(버섯, 허브 등)은 직접 채집해야 인벤토리에 들어옴 (이전 채집 기록 복원 지원)
       try {
@@ -62,13 +74,16 @@ export function createInventorySystem(player = null) {
       const item = getItem(id) || (typeof itemIdOrItem === 'object' ? itemIdOrItem : null);
       if (!item) return false;
 
+      const alreadyHas = acquiredItems.has(id);
       acquiredItems.set(id, item);
       try {
         if (typeof localStorage !== 'undefined') {
           localStorage.setItem(`littleday_item_${id}`, '1');
         }
       } catch (e) {}
-      notify();
+      if (!alreadyHas) {
+        notify();
+      }
       return true;
     },
 

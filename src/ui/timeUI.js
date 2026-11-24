@@ -1,12 +1,13 @@
-// LITTLE DAY 게임 시간 표시 및 플레이어 시간 조절 설정 패널 UI
+// LITTLE DAY 게임 시간 및 날씨 표시 / 설정 패널 UI
 import { TimePhase } from '../systems/timeSystem.js';
+import { WeatherType, WeatherInfo } from '../systems/weatherSystem.js';
 
-export function createTimeUI(timeSystem, moonflowerEvent = null) {
+export function createTimeUI(timeSystem, moonflowerEvent = null, weatherSystem = null) {
   // 스타일 주입
   const style = document.createElement('style');
   style.id = 'little-day-time-style';
   style.textContent = `
-    /* 좌측 상단 시간 표시 캡슐 위젯 */
+    /* 좌측 상단 시간/날씨 표시 캡슐 위젯 */
     .time-widget-container {
       position: fixed;
       top: 24px;
@@ -14,6 +15,12 @@ export function createTimeUI(timeSystem, moonflowerEvent = null) {
       z-index: 120;
       font-family: "Pretendard", "Segoe UI", sans-serif;
       user-select: none;
+    }
+
+    .time-badge-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
 
     .time-badge-pill {
@@ -38,6 +45,40 @@ export function createTimeUI(timeSystem, moonflowerEvent = null) {
     }
     .time-badge-pill:active {
       transform: scale(0.98);
+    }
+
+    .weather-badge-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 12px;
+      height: 40px;
+      background: rgba(255, 253, 250, 0.94);
+      backdrop-filter: blur(10px);
+      border-radius: 999px;
+      border: 2px solid #ffd6e2;
+      box-shadow: 0 4px 14px rgba(180, 130, 150, 0.2);
+      color: #6a4050;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 800;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.2s ease;
+    }
+    .weather-badge-pill:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 18px rgba(180, 130, 150, 0.28);
+      border-color: #ffb8cc;
+    }
+    .weather-badge-pill:active {
+      transform: scale(0.98);
+    }
+    .weather-badge-icon {
+      font-size: 16px;
+      line-height: 1;
+    }
+    .weather-badge-text {
+      font-weight: 800;
+      letter-spacing: -0.02em;
     }
 
     .time-phase-tag {
@@ -102,6 +143,9 @@ export function createTimeUI(timeSystem, moonflowerEvent = null) {
     .time-widget-container.open .time-toggle-arrow {
       transform: rotate(180deg);
     }
+    .time-widget-container.open {
+      z-index: 250;
+    }
 
     /* 드롭다운 시간 조절 설정 패널 */
     .time-control-panel {
@@ -109,6 +153,9 @@ export function createTimeUI(timeSystem, moonflowerEvent = null) {
       top: 48px;
       left: 0;
       width: 280px;
+      max-width: min(280px, calc(100vw - 48px));
+      box-sizing: border-box;
+      z-index: 250;
       background: rgba(255, 253, 250, 0.98);
       backdrop-filter: blur(14px);
       border-radius: 20px;
@@ -280,6 +327,85 @@ export function createTimeUI(timeSystem, moonflowerEvent = null) {
       border-top: 1px dashed #ffd6e2;
       padding-top: 7px;
     }
+
+    /* 날씨 직접 선택 컨트롤 박스 */
+    .weather-control-box {
+      background: #ffffff;
+      border: 1.5px solid #ffccd9;
+      border-radius: 14px;
+      padding: 10px;
+      margin-bottom: 12px;
+    }
+    .weather-buttons-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 5px;
+      margin-bottom: 8px;
+    }
+    .weather-select-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      height: 44px;
+      background: #fffafa;
+      border: 1.5px solid #ffd6e2;
+      border-radius: 9px;
+      font-size: 11px;
+      font-weight: 800;
+      color: #6a4555;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .weather-select-btn .w-icon {
+      font-size: 16px;
+      line-height: 1;
+    }
+    .weather-select-btn:hover {
+      background: #fff2f6;
+      border-color: #ff8da7;
+      transform: translateY(-1px);
+    }
+    .weather-select-btn.active {
+      background: #ff8fa7;
+      border-color: #ff6588;
+      color: #ffffff;
+      box-shadow: 0 2px 8px rgba(255, 120, 150, 0.35);
+    }
+    .weather-status-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      font-size: 11px;
+      color: #8b5568;
+    }
+    .weather-auto-toggle-btn {
+      padding: 3px 8px;
+      font-size: 10.5px;
+      font-weight: 800;
+      border-radius: 999px;
+      border: 1px solid #c2eed5;
+      background: #eafaf1;
+      color: #27ae60;
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .weather-auto-toggle-btn.off {
+      background: #fdf2f2;
+      border-color: #f5c2c7;
+      color: #b02a37;
+    }
+
+    /* 설정 패널 오픈 시 좌측 조작 안내 버튼 가림 (겹침 방지) */
+    :has(.time-widget-container.open) .welcome-help-trigger,
+    body.time-panel-open .welcome-help-trigger {
+      opacity: 0 !important;
+      pointer-events: none !important;
+      transform: translateY(-8px) scale(0.95);
+    }
   `;
   document.head.appendChild(style);
 
@@ -299,20 +425,54 @@ export function createTimeUI(timeSystem, moonflowerEvent = null) {
   const container = document.createElement('div');
   container.className = 'time-widget-container';
   container.innerHTML = `
-    <div class="time-badge-pill" title="클릭하여 시간 제어 및 게임 설정 열기">
-      <span class="time-phase-tag phase-day">
-        <span class="time-icon">☀️</span>
-        <span class="time-phase-text">낮</span>
-      </span>
-      <span class="time-clock-text">18:00</span>
-      <span class="time-mode-badge auto">🟢 자동 진행</span>
-      <span class="time-toggle-arrow">▾</span>
+    <div class="time-badge-row">
+      <div class="time-badge-pill" title="클릭하여 시간 및 날씨 설정 열기">
+        <span class="time-phase-tag phase-day">
+          <span class="time-icon">☀️</span>
+          <span class="time-phase-text">낮</span>
+        </span>
+        <span class="time-clock-text">18:00</span>
+        <span class="time-mode-badge auto">🟢 자동 진행</span>
+        <span class="time-toggle-arrow">▾</span>
+      </div>
+
+      <div class="weather-badge-pill" title="현재 날씨 (클릭하여 날씨 변경)">
+        <span class="weather-badge-icon">☀️</span>
+        <span class="weather-badge-text">맑음</span>
+      </div>
     </div>
 
     <div class="time-control-panel">
       <div class="time-panel-header">
-        <span class="time-panel-title">⏱️ 게임 시간 설정</span>
+        <span class="time-panel-title">⏱️ 게임 시간 및 날씨 설정</span>
         <span style="font-size:11px;color:#a87e90;font-weight:700;">24시간제</span>
+      </div>
+
+      <!-- 날씨 선택 컨트롤 -->
+      <div class="weather-control-box">
+        <div style="font-size:11px;font-weight:800;color:#8a5068;margin-bottom:6px;">⛅ 날씨 직접 선택</div>
+        <div class="weather-buttons-grid">
+          <button class="weather-select-btn active" data-weather="sunny">
+            <span class="w-icon">☀️</span>
+            <span>맑음</span>
+          </button>
+          <button class="weather-select-btn" data-weather="cloudy">
+            <span class="w-icon">☁️</span>
+            <span>흐림</span>
+          </button>
+          <button class="weather-select-btn" data-weather="rainy">
+            <span class="w-icon">🌧️</span>
+            <span>비</span>
+          </button>
+          <button class="weather-select-btn" data-weather="foggy">
+            <span class="w-icon">🌫️</span>
+            <span>안개</span>
+          </button>
+        </div>
+        <div class="weather-status-row">
+          <span id="weather-desc-text" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">☀️ 화창하고 따뜻한 햇살이 내리쬡니다.</span>
+          <button class="weather-auto-toggle-btn" id="btn-toggle-weather-auto">🎲 자동 켜짐</button>
+        </div>
       </div>
 
       <!-- 현재 진행 모드 상태 안내 -->
@@ -365,6 +525,10 @@ export function createTimeUI(timeSystem, moonflowerEvent = null) {
   document.body.appendChild(container);
 
   const pill = container.querySelector('.time-badge-pill');
+  const weatherPill = container.querySelector('.weather-badge-pill');
+  const weatherBadgeIcon = container.querySelector('.weather-badge-icon');
+  const weatherBadgeText = container.querySelector('.weather-badge-text');
+
   const phaseTag = container.querySelector('.time-phase-tag');
   const phaseIcon = container.querySelector('.time-icon');
   const phaseText = container.querySelector('.time-phase-text');
@@ -379,8 +543,13 @@ export function createTimeUI(timeSystem, moonflowerEvent = null) {
   const btnResetAuto = container.querySelector('#btn-reset-real-time');
   const jumpBtns = container.querySelectorAll('.time-jump-btn');
 
+  const weatherBtns = container.querySelectorAll('.weather-select-btn');
+  const weatherDescText = container.querySelector('#weather-desc-text');
+  const btnToggleWeatherAuto = container.querySelector('#btn-toggle-weather-auto');
+
   function togglePanel() {
     container.classList.toggle('open');
+    document.body.classList.toggle('time-panel-open', container.classList.contains('open'));
     if (container.classList.contains('open')) {
       const info = timeSystem.getFormattedInfo();
       selectHour.value = String(info.hour);
@@ -391,11 +560,37 @@ export function createTimeUI(timeSystem, moonflowerEvent = null) {
   }
 
   pill.addEventListener('click', togglePanel);
+  if (weatherPill) {
+    weatherPill.addEventListener('click', togglePanel);
+  }
+
+  // 날씨 선택 버튼 이벤트
+  if (weatherBtns && weatherSystem) {
+    weatherBtns.forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const wType = btn.dataset.weather;
+        weatherSystem.setWeather(wType, false);
+      });
+    });
+  }
+
+  // 자동 날씨 순환 토글 버튼
+  if (btnToggleWeatherAuto && weatherSystem) {
+    btnToggleWeatherAuto.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const nextAuto = !weatherSystem.isAutoCycle();
+      weatherSystem.setAutoCycle(nextAuto);
+      btnToggleWeatherAuto.textContent = nextAuto ? '🎲 자동 켜짐' : '⏸️ 자동 꺼짐';
+      btnToggleWeatherAuto.classList.toggle('off', !nextAuto);
+    });
+  }
 
   // 외부 클릭 시 닫기
   document.addEventListener('click', (e) => {
     if (!container.contains(e.target)) {
       container.classList.remove('open');
+      document.body.classList.remove('time-panel-open');
     }
   });
 
@@ -463,13 +658,17 @@ export function createTimeUI(timeSystem, moonflowerEvent = null) {
 
   let lastPhase = null;
   let lastMode = null;
+  let lastWeather = null;
+  let lastAutoCycle = null;
 
   return {
     open() {
       container.classList.add('open');
+      document.body.classList.add('time-panel-open');
     },
     close() {
       container.classList.remove('open');
+      document.body.classList.remove('time-panel-open');
     },
     update() {
       const info = timeSystem.getFormattedInfo();
@@ -496,6 +695,34 @@ export function createTimeUI(timeSystem, moonflowerEvent = null) {
           modeBadge.textContent = '🟡 사용자 지정';
           statusTitle.textContent = '🟡 사용자 지정 시간 모드';
           statusDesc.textContent = '플레이어가 설정한 시간부터 1:1 실시간으로 자연스럽게 진행 중입니다.';
+        }
+      }
+
+      // 날씨 갱신
+      if (weatherSystem) {
+        const curW = weatherSystem.getWeather();
+        const tgtW = weatherSystem.getTargetWeather();
+        const activeW = weatherSystem.isTransitioning() ? tgtW : curW;
+        const isAuto = weatherSystem.isAutoCycle();
+
+        if (activeW !== lastWeather) {
+          lastWeather = activeW;
+          const wInfo = WeatherInfo[activeW] || WeatherInfo.sunny;
+          if (weatherBadgeIcon) weatherBadgeIcon.textContent = wInfo.icon;
+          if (weatherBadgeText) weatherBadgeText.textContent = wInfo.name;
+          if (weatherDescText) weatherDescText.textContent = `${wInfo.icon} ${wInfo.desc}`;
+
+          if (weatherBtns) {
+            weatherBtns.forEach((btn) => {
+              btn.classList.toggle('active', btn.dataset.weather === activeW);
+            });
+          }
+        }
+
+        if (btnToggleWeatherAuto && isAuto !== lastAutoCycle) {
+          lastAutoCycle = isAuto;
+          btnToggleWeatherAuto.textContent = isAuto ? '🎲 자동 켜짐' : '⏸️ 자동 꺼짐';
+          btnToggleWeatherAuto.classList.toggle('off', !isAuto);
         }
       }
     }

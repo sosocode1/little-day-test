@@ -14,7 +14,8 @@ export function createSaveSystem({
   inventorySystem,
   timeSystem,
   moonflowerEvent,
-  flowerManager
+  flowerManager,
+  weatherSystem = null
 }) {
   let saveTimer = null;
 
@@ -55,6 +56,17 @@ export function createSaveSystem({
           legacy.collectibles[colId] = true;
         }
       }
+
+      // 5. 퀘스트 완료 및 보상 아이템 상태
+      if (localStorage.getItem('littleday_quest_completed') === '1') {
+        legacy.questCompleted = true;
+      }
+      if (
+        localStorage.getItem('littleday_item_moonlight_brooch') === '1' ||
+        localStorage.getItem('littleday_quest_reward_claimed') === '1'
+      ) {
+        legacy.rewardClaimed = true;
+      }
     } catch (e) {
       console.warn('[SaveSystem] Error reading legacy storage:', e);
     }
@@ -89,7 +101,7 @@ export function createSaveSystem({
     // 4. 퀘스트 상태
     const questData = questSystem && typeof questSystem.getStateData === 'function'
       ? questSystem.getStateData()
-      : { id: 'fox_pink_flower', state: 'NOT_STARTED', collectedCount: 0 };
+      : { id: 'fox_pink_flower', state: 'NOT_STARTED', collectedCount: 0, rewardClaimed: false };
 
     // 5. 월드 및 이벤트 상태
     const legacy = migrateLegacyData();
@@ -134,7 +146,10 @@ export function createSaveSystem({
         moonflowerDone,
         collectibles: legacy.collectibles
       },
-      time: timeData
+      time: timeData,
+      weather: weatherSystem && typeof weatherSystem.exportData === 'function'
+        ? weatherSystem.exportData()
+        : null
     };
   }
 
@@ -161,6 +176,16 @@ export function createSaveSystem({
       // 기존 개별 키 동기화 유지 (하위 호환성)
       if (data.world?.moonflowerDone) {
         localStorage.setItem('littleday_event_moonflower_done', '1');
+      }
+      if (data.quest?.state === 'COMPLETED' || data.quest?.rewardClaimed) {
+        localStorage.setItem('littleday_quest_completed', '1');
+        localStorage.setItem('littleday_quest_reward_claimed', '1');
+      }
+      if (
+        Array.isArray(data.inventory?.acquiredItemIds) &&
+        data.inventory.acquiredItemIds.includes('moonlight_brooch')
+      ) {
+        localStorage.setItem('littleday_item_moonlight_brooch', '1');
       }
       if (Array.isArray(data.world?.unlockedAreas)) {
         for (const id of data.world.unlockedAreas) {
@@ -251,6 +276,16 @@ export function createSaveSystem({
         }
       }
 
+      // 7. 게임 시간 상태 복원 (수동 시간 및 자동 모드 완벽 복원)
+      if (data.time && timeSystem && typeof timeSystem.restore === 'function') {
+        timeSystem.restore(data.time);
+      }
+
+      // 8. 날씨 상태 복원
+      if (data.weather && weatherSystem && typeof weatherSystem.restore === 'function') {
+        weatherSystem.restore(data.weather);
+      }
+
       return true;
     } catch (e) {
       console.warn('[SaveSystem] Restore error:', e);
@@ -272,6 +307,11 @@ export function createSaveSystem({
   // 퀘스트 상태 변경 시 자동 저장 구독
   if (questSystem && typeof questSystem.onStateChange === 'function') {
     questSystem.onStateChange(() => save(false));
+  }
+
+  // 시간 설정 변경 시 자동 저장 구독 (수동 시간 변경 시 저장)
+  if (timeSystem && typeof timeSystem.onModeChange === 'function') {
+    timeSystem.onModeChange(() => save(false));
   }
 
   return {

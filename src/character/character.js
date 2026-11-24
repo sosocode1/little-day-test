@@ -514,6 +514,33 @@ function buildClayFlower(petalColor = 0xf8efe0, centerColor = 0xf0b84c, scale = 
 }
 
 /**
+ * 퀘스트 완료 보상용 클레이 달빛 브로치 장식
+ */
+function buildClayBrooch(mainColor = 0xa8c8ff, goldColor = 0xffe680, scale = 1.45) {
+  const g = new THREE.Group();
+  const mMat = clayMat(goldColor, { roughness: 0.65 });
+  const gemMat = clayMat(mainColor, { roughness: 0.5 });
+  const starMat = clayMat(0xfff6cf, { roughness: 0.4 });
+
+  // 달 형태: 클레이 구체들을 초승달 호를 따라 배치
+  const points = 7;
+  for (let i = 0; i < points; i++) {
+    const t = (i / (points - 1)) * Math.PI * 0.85 - Math.PI * 0.42;
+    const r = 0.025;
+    const x = Math.cos(t) * r - 0.010;
+    const y = Math.sin(t) * r;
+    const scaleVal = 0.012 * Math.cos(t * 0.95);
+    g.add(makeMesh(unitSphereGeo, mMat, [x, y, 0], [0, 0, 0], [scaleVal, scaleVal, scaleVal * 1.3]));
+  }
+  // 중앙 보석
+  g.add(makeMesh(unitSphereGeo, gemMat, [0.006, 0.002, 0.008], [0, 0, 0], [0.011, 0.011, 0.009]));
+  // 작은 별 장식
+  g.add(makeMesh(unitSphereGeo, starMat, [0.016, 0.012, 0.005], [0, 0, 0], [0.006, 0.006, 0.006]));
+  g.scale.setScalar(scale);
+  return g;
+}
+
+/**
  * 첨부 시트 기준: 짙은 브라운 크로스백 + 대각선 가죽 스트랩 + 작은 꽃 장식 2개
  */
 function buildCrossbodyBag(bagColor = 0x7b5139) {
@@ -1236,6 +1263,19 @@ export function createCharacter(type = 'female') {
       pin.rotation.set(-0.25, -0.55, 0.15);
       applyShadows(pin);
       return pin;
+    }
+
+    if (item.modelType === 'moonlight_brooch' || item.id === 'moonlight_brooch') {
+      const brooch = buildClayBrooch(
+        (item.colors && item.colors.main) || 0xa8c8ff,
+        (item.colors && item.colors.gold) || 0xffe680,
+        1.45
+      );
+      brooch.name = `accessory_${item.id}`;
+      brooch.position.set(-0.205, 0.145, 0.245);
+      brooch.rotation.set(-0.25, -0.55, 0.15);
+      applyShadows(brooch);
+      return brooch;
     }
 
     return null;

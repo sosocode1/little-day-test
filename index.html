@@ -8,10 +8,26 @@
       html, body { margin: 0; height: 100%; overflow: hidden; background: #fdf3f7; }
       #app { position: fixed; inset: 0; }
       #title {
-        position: fixed; top: 24px; left: 0; right: 0; text-align: center;
-        font: 700 2rem/1 "Segoe UI", sans-serif; letter-spacing: 0.3em;
-        color: #fff; text-shadow: 0 2px 8px rgba(180, 120, 160, 0.6);
-        pointer-events: none; user-select: none;
+        position: fixed;
+        top: 18px;
+        left: 50%;
+        transform: translateX(-50%);
+        margin: 0;
+        text-align: center;
+        font: 800 clamp(1.1rem, 2vw, 1.8rem)/1 "Segoe UI", sans-serif;
+        letter-spacing: 0.25em;
+        color: #fff;
+        text-shadow: 0 2px 8px rgba(180, 120, 160, 0.6);
+        pointer-events: none;
+        user-select: none;
+        z-index: 90;
+        white-space: nowrap;
+        transition: opacity 0.2s ease;
+      }
+      @media (max-width: 1080px) {
+        #title {
+          display: none;
+        }
       }
     </style>
   </head>

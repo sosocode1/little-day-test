@@ -180,8 +180,8 @@ export function createDayNightCycle(scene, timeSystem) {
     hemiLight,
     skyGroup,
 
-    // 매 프레임 시간 및 플레이어 위치 기반 환경 갱신
-    update(playerPos) {
+    // 매 프레임 시간 및 플레이어 위치 기반 환경 갱신 (날씨 모디파이어 지원)
+    update(playerPos, weatherMod = null) {
       const time = timeSystem.getTime() % 24.0;
 
       // 1. 키프레임 보간 파라미터 계산
@@ -207,16 +207,38 @@ export function createDayNightCycle(scene, timeSystem) {
       const hemiInt = kPrev.hemiInt + (kNext.hemiInt - kPrev.hemiInt) * alpha;
       const dirInt = kPrev.dirInt + (kNext.dirInt - kPrev.dirInt) * alpha;
 
-      // 3. 씬 배경 및 조명 적용
-      scene.background.copy(currentSkyColor);
-      scene.fog.color.copy(currentFogColor);
+      // 3. 씬 배경 및 조명 적용 (날씨 모디파이어 결합)
+      if (weatherMod) {
+        scene.background.setRGB(
+          currentSkyColor.r * weatherMod.skyTint.r,
+          currentSkyColor.g * weatherMod.skyTint.g,
+          currentSkyColor.b * weatherMod.skyTint.b
+        );
+        scene.fog.color.setRGB(
+          currentFogColor.r * weatherMod.fogTint.r,
+          currentFogColor.g * weatherMod.fogTint.g,
+          currentFogColor.b * weatherMod.fogTint.b
+        );
+        scene.fog.near = weatherMod.fogNear;
+        scene.fog.far = weatherMod.fogFar;
 
-      hemiLight.color.copy(currentHemiSky);
-      hemiLight.groundColor.copy(currentHemiGround);
-      hemiLight.intensity = hemiInt;
+        hemiLight.color.copy(currentHemiSky);
+        hemiLight.groundColor.copy(currentHemiGround);
+        hemiLight.intensity = hemiInt * weatherMod.hemiMult;
 
-      mainLight.color.copy(currentDirColor);
-      mainLight.intensity = dirInt;
+        mainLight.color.copy(currentDirColor);
+        mainLight.intensity = dirInt * weatherMod.dirMult;
+      } else {
+        scene.background.copy(currentSkyColor);
+        scene.fog.color.copy(currentFogColor);
+
+        hemiLight.color.copy(currentHemiSky);
+        hemiLight.groundColor.copy(currentHemiGround);
+        hemiLight.intensity = hemiInt;
+
+        mainLight.color.copy(currentDirColor);
+        mainLight.intensity = dirInt;
+      }
 
       // 4. 태양 & 달 궤도 공전 위치 계산
       // 06:00(동쪽 지평선), 12:00(남중 정오), 18:00(서쪽 일몰), 24:00(한밤중)
@@ -264,8 +286,9 @@ export function createDayNightCycle(scene, timeSystem) {
         snapZ + dirNorm.z * lightDistance
       );
 
-      // 밤/낮에 따른 그림자 강도 조절 (밤에는 부드러운 그림자)
-      mainLight.shadow.intensity = isDaytime ? 0.45 : 0.32;
+      // 밤/낮 및 날씨에 따른 그림자 강도 조절 (밤 및 흐림/비/안개에는 부드러운 그림자)
+      const shadowFactor = weatherMod?.shadowMult ?? 1.0;
+      mainLight.shadow.intensity = (isDaytime ? 0.45 : 0.32) * shadowFactor;
     }
   };
 }

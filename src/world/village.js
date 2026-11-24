@@ -158,11 +158,11 @@ export function createVillage() {
     z: -8 + Math.cos(cottageRot) * 2.65,
     radius: 1.8,
     returnPos: new THREE.Vector3(
-      -13 + Math.sin(cottageRot) * 3.4,
+      -13 + Math.sin(cottageRot) * 4.6,
       0,
-      -8 + Math.cos(cottageRot) * 3.4
+      -8 + Math.cos(cottageRot) * 4.6
     ),
-    returnYaw: cottageRot + Math.PI // 광장을 바라보는 각도
+    returnYaw: cottageRot // 마을 광장을 바라보는 각도
   };
 
   // 속삭이는 숲 (Whispering Forest) 입구 아치 및 입장 트리거 (북쪽 산책로 좌측)

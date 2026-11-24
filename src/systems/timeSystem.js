@@ -279,6 +279,26 @@ export function createTimeSystem() {
     onModeChange(cb) {
       modeListeners.add(cb);
       return () => modeListeners.delete(cb);
+    },
+
+    // 세이브 데이터로부터 시간 상태 복원 (수동 시간 및 자동 모드 완벽 지원)
+    restore(savedData) {
+      if (!savedData) return;
+      if (typeof savedData.day === 'number') {
+        currentDay = Math.max(1, Math.floor(savedData.day));
+      }
+      if (savedData.mode === 'custom' && typeof savedData.currentTime === 'number') {
+        mode = 'custom';
+        currentTime = (savedData.currentTime % 24.0 + 24.0) % 24.0;
+        lastHour = Math.floor(currentTime);
+        currentPhase = calculatePhase(currentTime);
+        notifyPhase(currentPhase, currentPhase);
+        notifyHour(lastHour);
+        notifyTick();
+        notifyMode();
+      } else if (savedData.mode === 'auto') {
+        this.resetToRealTime();
+      }
     }
   };
 }

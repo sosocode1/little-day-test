@@ -24,10 +24,17 @@ import { createSaveSystem } from './systems/saveSystem.js';
 // 게임 내부 시간 시스템 초기화 (현실 시간보다 정확히 1시간 느린 실시간 1:1 진행)
 const timeSystem = createTimeSystem();
 
+// ?reset=1 URL 파라미터 감지 시 신규 유저 테스트를 위한 로컬스토리지 초기화
+if (typeof window !== 'undefined' && new URLSearchParams(location.search).get('reset') === '1') {
+  try {
+    localStorage.clear();
+  } catch (e) {}
+}
+
 const renderer = createRenderer(document.getElementById('app'));
 const camera = createCamera();
 const world = createScene(timeSystem);
-const { scene, spawn, npcs } = world;
+const { scene, spawn, npcs, weatherSystem } = world;
 onResize(renderer, camera);
 
 // 캐릭터 생성
@@ -73,7 +80,7 @@ const worldMapUI = createWorldMapUI(areaManager, questSystem, inventorySystem);
 
 // 밤 22:00 전용 미스터리 이벤트: 사라진 달빛 꽃 (The Lost Moonflower)
 const moonflowerEvent = createMoonflowerEvent(scene, timeSystem, questSystem, inventorySystem);
-const timeUI = createTimeUI(timeSystem, moonflowerEvent);
+const timeUI = createTimeUI(timeSystem, moonflowerEvent, weatherSystem);
 
 // 통합 세이브 시스템 초기화 및 바인딩
 const saveSystem = createSaveSystem({
@@ -83,7 +90,8 @@ const saveSystem = createSaveSystem({
   inventorySystem,
   timeSystem,
   moonflowerEvent,
-  flowerManager
+  flowerManager,
+  weatherSystem
 });
 
 // 외형 스타일링 변경 시 자동 저장
@@ -171,7 +179,7 @@ renderer.setAnimationLoop((time) => {
   const activeColliders = spaceManager.getActiveColliders();
   const activeBoundary = spaceManager.getActiveBoundary();
 
-  followCamera.update(player.position, input.consumeLook(), dt);
+  followCamera.update(player.position, input.consumeLook(), dt, input.consumeZoom());
   updatePlayer(player, moveAxis, followCamera.yaw, dt, activeColliders, activeBoundary);
   renderer.render(scene, camera);
 });

@@ -35,6 +35,22 @@ export function createQuestUI() {
       transform: translateX(0);
       pointer-events: auto;
     }
+    @media (max-width: 1280px) {
+      .quest-panel {
+        width: 220px;
+        right: 18px;
+        top: 74px;
+        padding: 13px 15px;
+      }
+    }
+    @media (max-width: 768px) {
+      .quest-panel {
+        width: 195px;
+        right: 12px;
+        top: 70px;
+        padding: 10px 12px;
+      }
+    }
     .quest-panel-header {
       display: flex;
       align-items: center;
@@ -96,7 +112,7 @@ export function createQuestUI() {
     /* 수집 토스트 알림 (화면 상단 중앙) */
     .collect-toast {
       position: fixed;
-      top: 80px;
+      top: 130px;
       left: 50%;
       transform: translateX(-50%) translateY(-15px);
       background: rgba(255, 255, 255, 0.95);
@@ -122,90 +138,223 @@ export function createQuestUI() {
       transform: translateX(-50%) translateY(0);
     }
 
-    /* 보상 획득 모달 */
+    /* 클레이 팝업 애니메이션 */
+    @keyframes clayModalPop {
+      0% {
+        transform: scale(0.7) translateY(20px);
+        opacity: 0;
+      }
+      65% {
+        transform: scale(1.04) translateY(-4px);
+        opacity: 1;
+      }
+      100% {
+        transform: scale(1) translateY(0);
+        opacity: 1;
+      }
+    }
+    @keyframes clayFloat {
+      0%, 100% {
+        transform: translateY(0);
+      }
+      50% {
+        transform: translateY(-6px);
+      }
+    }
+    @keyframes claySparkle {
+      0%, 100% {
+        transform: scale(1) rotate(0deg);
+        opacity: 0.85;
+      }
+      50% {
+        transform: scale(1.2) rotate(15deg);
+        opacity: 1;
+      }
+    }
+
+    /* 화면 중앙 클레이 감성 QUEST COMPLETE 팝업 */
     .reward-modal-backdrop {
       position: fixed;
       inset: 0;
-      background: rgba(70, 40, 50, 0.4);
-      backdrop-filter: blur(4px);
+      background: rgba(55, 35, 45, 0.45);
+      backdrop-filter: blur(6px);
       display: flex;
       align-items: center;
       justify-content: center;
       z-index: 300;
       opacity: 0;
       pointer-events: none;
-      transition: opacity 0.25s ease;
+      transition: opacity 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+      font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif;
     }
     .reward-modal-backdrop.open {
       opacity: 1;
       pointer-events: auto;
     }
     .reward-card {
-      width: min(90vw, 420px);
-      background: #fffcf8;
-      border-radius: 28px;
-      padding: 28px 26px 22px;
-      box-shadow: 0 20px 50px rgba(180, 100, 130, 0.35);
-      border: 4px solid #ffd6e2;
+      width: min(90vw, 440px);
+      background: #fffdf9;
+      border-radius: 32px;
+      padding: 28px 26px 24px;
+      box-shadow:
+        0 24px 60px rgba(160, 95, 125, 0.35),
+        0 4px 16px rgba(160, 95, 125, 0.15),
+        inset 0 4px 10px rgba(255, 255, 255, 0.9),
+        inset 0 -5px 12px rgba(240, 195, 210, 0.35);
+      border: 4px solid #ffd8e4;
       text-align: center;
-      font-family: "Segoe UI", sans-serif;
-      transform: scale(0.9);
-      transition: transform 0.25s ease;
+      transform: scale(0.85);
+      transition: transform 0.28s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      position: relative;
+      overflow: hidden;
     }
     .reward-modal-backdrop.open .reward-card {
       transform: scale(1);
+      animation: clayModalPop 0.38s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     }
-    .reward-header {
-      font-size: 20px;
-      font-weight: 900;
-      color: #ff6584;
-      margin-bottom: 6px;
-      display: flex;
+
+    /* QUEST COMPLETE 상단 배너 */
+    .reward-badge-banner {
+      display: inline-flex;
       align-items: center;
       justify-content: center;
       gap: 6px;
+      padding: 6px 18px;
+      background: linear-gradient(135deg, #ff8fad 0%, #ff6e94 100%);
+      color: #ffffff;
+      font-size: 13.5px;
+      font-weight: 900;
+      letter-spacing: 1.5px;
+      border-radius: 999px;
+      box-shadow:
+        0 4px 14px rgba(255, 110, 148, 0.4),
+        inset 0 2px 4px rgba(255, 255, 255, 0.6),
+        inset 0 -2px 4px rgba(190, 50, 90, 0.25);
+      border: 2px solid #ffb8cc;
+      margin-bottom: 12px;
+      user-select: none;
     }
+    .reward-badge-sparkle {
+      display: inline-block;
+      animation: claySparkle 1.8s ease-in-out infinite;
+    }
+
+    .reward-header {
+      font-size: 21px;
+      font-weight: 900;
+      color: #7b3850;
+      margin-bottom: 4px;
+      letter-spacing: -0.3px;
+    }
+    .reward-subheader {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: #a87285;
+      margin-bottom: 14px;
+    }
+
+    /* 클레이 보상 카드 내부 컨테이너 */
+    .reward-item-box {
+      background: linear-gradient(180deg, #fff5f8 0%, #ffedf2 100%);
+      border: 2.5px solid #ffccd9;
+      border-radius: 24px;
+      padding: 16px 16px 14px;
+      margin-bottom: 18px;
+      box-shadow:
+        inset 0 2px 8px rgba(255, 255, 255, 0.9),
+        0 6px 18px rgba(210, 130, 155, 0.12);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
     .reward-icon-circle {
-      width: 76px;
-      height: 76px;
-      margin: 14px auto 10px;
-      background: #ffe9f0;
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 10px;
+      background: linear-gradient(135deg, #ffffff 0%, #eef5ff 100%);
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 38px;
-      box-shadow: 0 4px 14px rgba(230, 130, 160, 0.25);
-      border: 2px solid #ffccd9;
+      font-size: 40px;
+      box-shadow:
+        0 8px 20px rgba(140, 175, 230, 0.3),
+        inset 0 3px 6px #ffffff,
+        inset 0 -3px 6px rgba(170, 200, 245, 0.4);
+      border: 3px solid #b8d4ff;
+      animation: clayFloat 2.6s ease-in-out infinite;
+    }
+
+    .reward-name-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
     }
     .reward-name {
-      font-size: 18px;
+      font-size: 18.5px;
+      font-weight: 900;
+      color: #3b4d75;
+      letter-spacing: -0.2px;
+    }
+    .reward-count-pill {
+      font-size: 11px;
       font-weight: 800;
-      color: #6a4050;
-      margin-bottom: 4px;
-    }
-    .reward-desc {
-      font-size: 14px;
-      color: #8c6a78;
-      line-height: 1.5;
-      margin-bottom: 18px;
-      padding: 0 10px;
-    }
-    .reward-confirm-btn {
-      background: linear-gradient(135deg, #ff9bb5, #ff7b9d);
-      color: white;
-      border: none;
-      padding: 10px 28px;
+      padding: 2px 8px;
+      background: #e6f0ff;
+      color: #2b5cb8;
       border-radius: 999px;
-      font-size: 15px;
-      font-weight: 800;
+      border: 1px solid #c2daff;
+    }
+
+    .reward-desc {
+      font-size: 13px;
+      color: #6d5563;
+      line-height: 1.45;
+      margin-bottom: 10px;
+      padding: 0 8px;
+    }
+
+    .reward-inventory-hint {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11.5px;
+      font-weight: 700;
+      color: #925368;
+      background: rgba(255, 255, 255, 0.75);
+      padding: 5px 14px;
+      border-radius: 999px;
+      border: 1px dashed #ffb8cc;
+    }
+
+    .reward-confirm-btn {
+      background: linear-gradient(135deg, #ff8fad 0%, #ff6e94 100%);
+      color: white;
+      border: 2px solid #ffccd9;
+      padding: 12px 42px;
+      border-radius: 999px;
+      font-size: 15.5px;
+      font-weight: 900;
       cursor: pointer;
-      box-shadow: 0 4px 12px rgba(240, 110, 140, 0.35);
-      transition: transform 0.1s, box-shadow 0.1s;
+      box-shadow:
+        0 6px 18px rgba(240, 110, 148, 0.38),
+        inset 0 2px 4px rgba(255, 255, 255, 0.5),
+        inset 0 -2px 4px rgba(180, 50, 90, 0.2);
+      transition: all 0.16s ease;
+      letter-spacing: 0.5px;
     }
     .reward-confirm-btn:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 6px 16px rgba(240, 110, 140, 0.45);
+      transform: translateY(-2px);
+      box-shadow:
+        0 9px 24px rgba(240, 110, 148, 0.48),
+        inset 0 2px 4px rgba(255, 255, 255, 0.6);
+      background: linear-gradient(135deg, #ff7e9f 0%, #ff5d86 100%);
+    }
+    .reward-confirm-btn:active {
+      transform: translateY(1px);
+      box-shadow: 0 3px 8px rgba(240, 110, 148, 0.3);
     }
   `;
   document.head.appendChild(style);
@@ -243,16 +392,31 @@ export function createQuestUI() {
   document.body.appendChild(toastEl);
   let toastTimer = null;
 
-  // 3. 보상 모달 DOM
+  // 3. 보상 모달 DOM (화면 중앙 클레이 감성 QUEST COMPLETE 팝업)
   const modalBackdrop = document.createElement('div');
   modalBackdrop.className = 'reward-modal-backdrop';
   modalBackdrop.innerHTML = `
-    <div class="reward-card">
-      <div class="reward-header">🎊 퀘스트 완료!</div>
-      <div class="reward-icon-circle">🌸</div>
-      <div class="reward-name">분홍 꽃 머리핀</div>
-      <div class="reward-desc">헤어 액세서리를 획득하여 캐릭터 머리에 착용했습니다!</div>
-      <button class="reward-confirm-btn">확인</button>
+    <div class="reward-card" role="dialog" aria-modal="true" aria-label="퀘스트 완료">
+      <div class="reward-badge-banner">
+        <span class="reward-badge-sparkle">✨</span>
+        <span>QUEST COMPLETE</span>
+        <span class="reward-badge-sparkle">✨</span>
+      </div>
+      <div class="reward-header">폭시의 작은 부탁</div>
+      <div class="reward-subheader">분홍색 꽃 3개를 모두 모았습니다!</div>
+      <div class="reward-item-box">
+        <div class="reward-icon-circle">🌙</div>
+        <div class="reward-name-row">
+          <span class="reward-name">달빛 브로치</span>
+          <span class="reward-count-pill">+ 1개 획득</span>
+        </div>
+        <div class="reward-desc">은은한 달빛의 마법이 깃든 신비롭고 영롱한 수제 클레이 브로치입니다.</div>
+        <div class="reward-inventory-hint">
+          <span>🎒</span>
+          <span>아이템 보관함 [I] 키에서 확인하실 수 있습니다</span>
+        </div>
+      </div>
+      <button class="reward-confirm-btn">보상 받기</button>
     </div>
   `;
   document.body.appendChild(modalBackdrop);
@@ -269,6 +433,14 @@ export function createQuestUI() {
   rewardConfirmBtn.addEventListener('click', closeReward);
   modalBackdrop.addEventListener('click', (e) => {
     if (e.target === modalBackdrop) closeReward();
+  });
+
+  // 단축키 (Esc / Enter / Space)로 팝업 닫기 지원
+  window.addEventListener('keydown', (e) => {
+    if (modalBackdrop.classList.contains('open') && (e.code === 'Escape' || e.code === 'Enter' || e.code === 'Space')) {
+      e.preventDefault();
+      closeReward();
+    }
   });
 
   return {
@@ -288,8 +460,8 @@ export function createQuestUI() {
       if (isCompleted) {
         badgeEl.textContent = '완료됨';
         badgeEl.className = 'quest-badge complete';
-        goalEl.textContent = '폭시에게 꽃 전달 완료!';
-        hintEl.textContent = '보상 수령 완료 ✨';
+        goalEl.textContent = '꽃 3개 수집 완료!';
+        hintEl.textContent = '달빛 브로치 획득 ✨';
       } else if (isReady) {
         badgeEl.textContent = '목표 달성';
         badgeEl.className = 'quest-badge complete';
@@ -315,11 +487,14 @@ export function createQuestUI() {
     showCollectToast(current, target) {
       this.showToast(`분홍색 꽃 수집! (${current}/${target})`, '🌸', 2200);
     },
-    // 보상 획득 모달 표시
+    // 화면 중앙 클레이 QUEST COMPLETE 보상 획득 모달 표시
     showRewardModal(reward, onClose = null) {
       onRewardClose = onClose;
-      modalBackdrop.querySelector('.reward-name').textContent = reward.name;
-      modalBackdrop.querySelector('.reward-desc').textContent = reward.description;
+      if (reward) {
+        if (reward.name) modalBackdrop.querySelector('.reward-name').textContent = reward.name;
+        if (reward.description) modalBackdrop.querySelector('.reward-desc').textContent = reward.description;
+        if (reward.icon) modalBackdrop.querySelector('.reward-icon-circle').textContent = reward.icon;
+      }
       modalBackdrop.classList.add('open');
     },
     isRewardModalOpen() {

@@ -194,8 +194,13 @@ export function createInteractionSystem(
         }
 
         // (2) 꽃 수집
-        if (flowerManager && questSystem && questSystem.getState() === QuestState.IN_PROGRESS) {
+        if (
+          flowerManager &&
+          questSystem &&
+          (questSystem.getState() === QuestState.IN_PROGRESS || questSystem.getState() === QuestState.NOT_STARTED)
+        ) {
           for (const flower of flowerManager.getActiveFlowers()) {
+            if (flower.isCollected) continue;
             if (questSystem.isFlowerCollected && questSystem.isFlowerCollected(flower.id)) continue;
             const dist = Math.hypot(playerPos.x - flower.position.x, playerPos.z - flower.position.z);
             if (dist <= flower.interactRadius) {
@@ -205,6 +210,9 @@ export function createInteractionSystem(
                 dist,
                 prompt: '분홍색 꽃 꺾기',
                 execute: () => {
+                  if (questSystem.getState() === QuestState.NOT_STARTED) {
+                    questSystem.startQuest();
+                  }
                   questSystem.collectFlower(flower);
                 }
               });

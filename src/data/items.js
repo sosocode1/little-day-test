@@ -17,6 +17,24 @@ export const ItemTypeName = {
 };
 
 export const ITEMS = {
+  // 폭시의 퀘스트 완료 보상: 특별한 아이템 '달빛 브로치'
+  moonlight_brooch: {
+    id: 'moonlight_brooch',
+    name: '달빛 브로치',
+    type: ItemType.HEAD,
+    categoryName: '헤어 액세서리',
+    icon: '🌙',
+    description: '은은한 달빛의 마법이 깃든 신비롭고 영롱한 수제 클레이 브로치입니다. 착용 시 은빛 달빛 기운이 머리칼에 감돕니다.',
+    source: '폭시의 작은 부탁 퀘스트 완료 보상',
+    modelType: 'moonlight_brooch',
+    colors: {
+      main: 0xa8c8ff,
+      gold: 0xffe680,
+      gem: 0xffffff,
+      glow: 0x82b4ff
+    }
+  },
+
   // 폭시의 퀘스트 보상: 분홍 꽃 머리핀
   pink_flower_pin: {
     id: 'pink_flower_pin',

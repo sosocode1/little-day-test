@@ -17,7 +17,7 @@ export function createInventoryUI(inventorySystem) {
       display: flex;
       align-items: center;
       justify-content: center;
-      z-index: 150;
+      z-index: 350;
       opacity: 0;
       pointer-events: none;
       transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1);

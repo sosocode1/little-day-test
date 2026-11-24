@@ -18,6 +18,22 @@ export function createCottageInterior() {
   const group = new THREE.Group();
   group.name = 'cottage-interior';
   const colliders = [];
+  const occluders = [];
+
+  function addOccluder(obj) {
+    if (!obj) return;
+    obj.traverse((child) => {
+      if (child.isMesh) {
+        occluders.push(child);
+      }
+    });
+  }
+
+  const addWall = (mesh) => {
+    group.add(mesh);
+    addOccluder(mesh);
+    return mesh;
+  };
 
   // 방 크기: 폭 7.2m (x: -3.6 ~ 3.6), 깊이 6.4m (z: -3.2 ~ 3.2), 높이 3.2m
   const ROOM_W = 7.2;
@@ -43,28 +59,28 @@ export function createCottageInterior() {
 
   // 2. 벽면 (상단은 카메라 시야를 위해 열려있고 하단 몰딩 포함)
   // 북쪽 벽 (창문이 있는 안쪽 벽)
-  group.add(mk(rbox(ROOM_W, ROOM_H, 0.2, 0.08), C_WALL, [0, ROOM_H / 2, -ROOM_D / 2]));
-  group.add(mk(rbox(ROOM_W, 0.25, 0.24, 0.04), C_BASEBOARD, [0, 0.125, -ROOM_D / 2]));
+  addWall(mk(rbox(ROOM_W, ROOM_H, 0.2, 0.08), C_WALL, [0, ROOM_H / 2, -ROOM_D / 2]));
+  addWall(mk(rbox(ROOM_W, 0.25, 0.24, 0.04), C_BASEBOARD, [0, 0.125, -ROOM_D / 2]));
 
   // 서쪽 벽 (테이블과 침대 헤드가 붙는 벽)
-  group.add(mk(rbox(0.2, ROOM_H, ROOM_D, 0.08), C_WALL, [-ROOM_W / 2, ROOM_H / 2, 0]));
-  group.add(mk(rbox(0.24, 0.25, ROOM_D, 0.04), C_BASEBOARD, [-ROOM_W / 2, 0.125, 0]));
+  addWall(mk(rbox(0.2, ROOM_H, ROOM_D, 0.08), C_WALL, [-ROOM_W / 2, ROOM_H / 2, 0]));
+  addWall(mk(rbox(0.24, 0.25, ROOM_D, 0.04), C_BASEBOARD, [-ROOM_W / 2, 0.125, 0]));
 
   // 동쪽 벽 (화장대와 옷장이 붙는 벽)
-  group.add(mk(rbox(0.2, ROOM_H, ROOM_D, 0.08), C_WALL, [ROOM_W / 2, ROOM_H / 2, 0]));
-  group.add(mk(rbox(0.24, 0.25, ROOM_D, 0.04), C_BASEBOARD, [ROOM_W / 2, 0.125, 0]));
+  addWall(mk(rbox(0.2, ROOM_H, ROOM_D, 0.08), C_WALL, [ROOM_W / 2, ROOM_H / 2, 0]));
+  addWall(mk(rbox(0.24, 0.25, ROOM_D, 0.04), C_BASEBOARD, [ROOM_W / 2, 0.125, 0]));
 
   // 남쪽 벽 (출입문이 있는 벽, 문 양옆으로 분할)
   const DOOR_W = 1.3;
   const sideW = (ROOM_W - DOOR_W) / 2;
-  group.add(mk(rbox(sideW, ROOM_H, 0.2, 0.08), C_WALL, [-ROOM_W / 2 + sideW / 2, ROOM_H / 2, ROOM_D / 2]));
-  group.add(mk(rbox(sideW, ROOM_H, 0.2, 0.08), C_WALL, [ROOM_W / 2 - sideW / 2, ROOM_H / 2, ROOM_D / 2]));
-  group.add(mk(rbox(DOOR_W, ROOM_H - 2.2, 0.2, 0.08), C_WALL, [0, ROOM_H - (ROOM_H - 2.2) / 2, ROOM_D / 2]));
+  addWall(mk(rbox(sideW, ROOM_H, 0.2, 0.08), C_WALL, [-ROOM_W / 2 + sideW / 2, ROOM_H / 2, ROOM_D / 2]));
+  addWall(mk(rbox(sideW, ROOM_H, 0.2, 0.08), C_WALL, [ROOM_W / 2 - sideW / 2, ROOM_H / 2, ROOM_D / 2]));
+  addWall(mk(rbox(DOOR_W, ROOM_H - 2.2, 0.2, 0.08), C_WALL, [0, ROOM_H - (ROOM_H - 2.2) / 2, ROOM_D / 2]));
 
   // 남쪽 출입문 (닫힌 문 + 문틀 + 손잡이 + 발매트)
-  group.add(mk(rbox(DOOR_W + 0.15, 2.25, 0.1, 0.05), C_BASEBOARD, [0, 1.125, ROOM_D / 2 - 0.02]));
-  group.add(mk(rbox(DOOR_W - 0.05, 2.15, 0.12, 0.06), 0xf0a8b8, [0, 1.075, ROOM_D / 2 + 0.01])); // 핑크 현관문
-  group.add(mk(new THREE.SphereGeometry(0.055, 12, 8), C_BRASS, [-0.45, 1.05, ROOM_D / 2 - 0.06]));
+  addWall(mk(rbox(DOOR_W + 0.15, 2.25, 0.1, 0.05), C_BASEBOARD, [0, 1.125, ROOM_D / 2 - 0.02]));
+  addWall(mk(rbox(DOOR_W - 0.05, 2.15, 0.12, 0.06), 0xf0a8b8, [0, 1.075, ROOM_D / 2 + 0.01])); // 핑크 현관문
+  addWall(mk(new THREE.SphereGeometry(0.055, 12, 8), C_BRASS, [-0.45, 1.05, ROOM_D / 2 - 0.06]));
   // 귀여운 현관 웰컴 매트
   group.add(mk(rbox(1.5, 0.03, 0.8, 0.04), 0xfff0db, [0, 0.015, ROOM_D / 2 - 0.55]));
 
@@ -97,6 +113,7 @@ export function createCottageInterior() {
   bedGroup.add(mk(rbox(0.6, 0.16, 0.42, 0.07), C_CREAM, [-0.42, 0.53, -0.68], [0.2, 0, 0]));
   bedGroup.add(mk(rbox(0.6, 0.16, 0.42, 0.07), C_CREAM, [0.42, 0.53, -0.68], [0.2, 0, 0]));
   group.add(bedGroup);
+  addOccluder(bedGroup);
   // 침대 충돌체
   colliders.push({ type: 'box', x: -2.25, z: -1.95, hw: 0.95, hd: 1.15, rot: 0 });
 
@@ -107,6 +124,7 @@ export function createCottageInterior() {
   standGroup.add(mk(new THREE.CylinderGeometry(0.03, 0.03, 0.3, 8), C_BRASS, [0, 0.7, 0]));
   standGroup.add(mk(new THREE.ConeGeometry(0.22, 0.24, 16, 1, true), 0xfffae0, [0, 0.88, 0]));
   group.add(standGroup);
+  addOccluder(standGroup);
   colliders.push({ type: 'box', x: -1.0, z: -2.65, hw: 0.35, hd: 0.35, rot: 0 });
 
   // [2] 옷장 (북동쪽: x 2.4, z -2.55)
@@ -125,6 +143,7 @@ export function createCottageInterior() {
   // 하단 서랍부
   wardrobeGroup.add(mk(rbox(1.6, 0.36, 0.05, 0.03), C_WOOD_DARK, [0, 0.25, 0.41]));
   group.add(wardrobeGroup);
+  addOccluder(wardrobeGroup);
   // 옷장 충돌체
   colliders.push({ type: 'box', x: 2.35, z: -2.55, hw: 0.95, hd: 0.48, rot: 0 });
 
@@ -144,6 +163,7 @@ export function createCottageInterior() {
   // 둥근 스툴 의자
   vanityGroup.add(mk(new THREE.CylinderGeometry(0.24, 0.24, 0.42, 16), C_PINK, [0, 0.21, 0.5]));
   group.add(vanityGroup);
+  addOccluder(vanityGroup);
   // 화장대 충돌체
   colliders.push({ type: 'box', x: 3.05, z: 0.1, hw: 0.55, hd: 0.85, rot: 0 });
 
@@ -174,6 +194,7 @@ export function createCottageInterior() {
     tableGroup.add(chair);
   }
   group.add(tableGroup);
+  addOccluder(tableGroup);
   // 테이블 세트 충돌체
   colliders.push({ type: 'circle', x: -2.55, z: 1.1, r: 0.95 });
 
@@ -193,6 +214,7 @@ export function createCottageInterior() {
   // 창턱 꽃상자
   windowGroup.add(mk(rbox(1.4, 0.18, 0.28, 0.05), C_WOOD_LIGHT, [0, -0.72, 0.18]));
   group.add(windowGroup);
+  addOccluder(windowGroup);
 
   // [6] 중앙 펜던트 조명 (천장 중앙: x 0, y 2.7, z 0)
   const lampGroup = new THREE.Group();
@@ -265,11 +287,30 @@ export function createCottageInterior() {
     maxZ: ROOM_D / 2 - 0.6
   };
 
+  // 실내 전용 카메라 세팅 (벽 밖으로 나가지 않도록 거리 및 바운드 설정, 실내 적정 줌 범위 및 여유 있는 거리 확보)
+  const cameraSettings = {
+    distance: 3.2,
+    minDistance: 2.0,
+    maxDistance: 4.2,
+    yaw: 0,
+    pitch: 0.46,
+    bounds: {
+      minX: -3.4,
+      maxX: 3.4,
+      minY: 0.9,
+      maxY: 3.6,
+      minZ: -3.0,
+      maxZ: 3.8
+    }
+  };
+
   return {
     group,
     colliders,
     triggers,
     boundaryBox,
-    spawnPos: new THREE.Vector3(0, 0, 2.1) // 문 바로 앞, 북쪽을 바라보며 스폰
+    cameraSettings,
+    spawnPos: new THREE.Vector3(0, 0, 0.5), // 중앙 러그 위, 북쪽을 바라보며 실내 전경과 캐릭터 전신이 시원하게 보이도록 스폰
+    occluders
   };
 }

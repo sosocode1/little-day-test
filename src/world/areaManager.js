@@ -240,11 +240,60 @@ export function createAreaManager({
         player.rotation.y = customYaw;
 
         if (followCamera) {
-          if (typeof followCamera.setOrientation === 'function') {
-            followCamera.setOrientation(customYaw, 0.32);
+          if (targetAreaId === 'cottage') {
+            const camSet = newArea.cameraSettings || cottage?.cameraSettings;
+            if (typeof followCamera.setDistanceRange === 'function') {
+              followCamera.setDistanceRange(camSet?.minDistance || 2.0, camSet?.maxDistance || 4.2);
+            }
+            if (typeof followCamera.setDistance === 'function') {
+              followCamera.setDistance(camSet?.distance || 3.2, true);
+            }
+            if (typeof followCamera.setBounds === 'function' && camSet?.bounds) {
+              followCamera.setBounds(camSet.bounds);
+            }
+            const pitch = camSet?.pitch || 0.46;
+            const camYaw = camSet?.yaw ?? 0;
+            if (typeof followCamera.setOrientation === 'function') {
+              followCamera.setOrientation(camYaw, pitch);
+            } else {
+              followCamera.yaw = camYaw;
+              followCamera.pitch = pitch;
+            }
+            if (typeof followCamera.setOccluders === 'function') {
+              followCamera.setOccluders(newArea.occluders, newArea.group);
+            }
           } else {
-            followCamera.yaw = customYaw;
-            followCamera.pitch = 0.32;
+            // 야외 (마을, 속삭이는 숲, 달빛 섬, 오래된 저택) 카메라 기본 설정 복원
+            if (typeof followCamera.clearOccluders === 'function') {
+              followCamera.clearOccluders();
+            }
+            if (typeof followCamera.setDistanceRange === 'function') {
+              followCamera.setDistanceRange(2.0, 8.5);
+            }
+            if (typeof followCamera.clearBounds === 'function') {
+              followCamera.clearBounds();
+            }
+            if (typeof followCamera.setDistance === 'function') {
+              if (prevAreaId === 'cottage') {
+                // 실내에서 야외로 나올 때 기본 야외 거리(5.0)로 복원
+                followCamera.setDistance(5.0, true);
+              } else {
+                // 야외 구역 간 이동(마을 <-> 숲 등) 시에는 기존 줌 거리를 야외 범위 내에서 자연스럽게 유지
+                const curDist = followCamera.targetDistance || followCamera.distance || 5.0;
+                followCamera.setDistance(curDist, true);
+              }
+            }
+            if (typeof followCamera.setOrientation === 'function') {
+              if (prevAreaId === 'cottage') {
+                // 실내에서 마을로 나올 때 캐릭터와 오두막이 시원하게 보이는 탁 트인 각도
+                followCamera.setOrientation(0.0, 0.35);
+              } else {
+                followCamera.setOrientation(customYaw, 0.32);
+              }
+            } else {
+              followCamera.yaw = prevAreaId === 'cottage' ? 0.0 : customYaw;
+              followCamera.pitch = prevAreaId === 'cottage' ? 0.35 : 0.32;
+            }
           }
           if (typeof followCamera.snap === 'function') {
             followCamera.snap(player.position);
@@ -271,9 +320,9 @@ export function createAreaManager({
       }
     },
 
-    // 별장 실내 입장 (마을 전용)
+    // 별장 실내 입장 (마을 전용, 실내를 바라보도록 Math.PI 회전)
     async enterCottage() {
-      return this.travelTo('cottage', cottage.spawnPos, 0);
+      return this.travelTo('cottage', cottage.spawnPos, Math.PI);
     },
 
     // 별장에서 마을로 나가기

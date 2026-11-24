@@ -1,7 +1,8 @@
-// 키보드 입력과 마우스 드래그(카메라 회전) 상태 관리
+// 키보드 입력과 마우스 드래그(카메라 회전), 휠 줌 상태 관리
 export function createInput(domElement) {
   const keys = new Set();
   const look = { dx: 0, dy: 0 };
+  let zoomDelta = 0;
   let dragging = false;
   let interactTriggered = false;
   let inventoryTriggered = false;
@@ -31,6 +32,25 @@ export function createInput(domElement) {
     look.dy += e.movementY;
   });
 
+  // 마우스 휠 줌 (위로 굴리면 줌 인, 아래로 굴리면 줌 아웃)
+  // 스크롤 가능한 UI 모달 및 오버레이 상단에 마우스가 있을 때는 카메라 줌 제외
+  window.addEventListener(
+    'wheel',
+    (e) => {
+      const isOverUI =
+        e.target &&
+        typeof e.target.closest === 'function' &&
+        e.target.closest(
+          '.inv-overlay, .inv-modal, .wardrobe-overlay, .wardrobe-card, .vanity-overlay, .vanity-card, .time-control-panel, .dialogue-modal, .quest-panel, .worldmap-overlay, .worldmap-modal, .reward-modal-backdrop'
+        );
+      if (isOverUI) return;
+
+      e.preventDefault();
+      zoomDelta += e.deltaY;
+    },
+    { passive: false }
+  );
+
   const down = (...codes) => codes.some((c) => keys.has(c));
 
   return {
@@ -46,6 +66,12 @@ export function createInput(domElement) {
       const out = { dx: look.dx, dy: look.dy };
       look.dx = look.dy = 0;
       return out;
+    },
+    // 마지막 호출 이후 누적된 마우스 휠 줌 델타 소모
+    consumeZoom() {
+      const val = zoomDelta;
+      zoomDelta = 0;
+      return val;
     },
     // 상호작용 키(E) 한 번 눌림 소모
     consumeInteract() {

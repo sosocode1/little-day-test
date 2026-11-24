@@ -15,7 +15,7 @@ export function createWorldMapUI(areaManager, questSystem, inventorySystem) {
       position: fixed;
       top: 24px;
       right: 24px;
-      z-index: 500;
+      z-index: 120;
       height: 40px;
       padding: 0 16px;
       background: rgba(255, 253, 250, 0.94);
@@ -34,6 +34,19 @@ export function createWorldMapUI(areaManager, questSystem, inventorySystem) {
       font-family: "Pretendard", "Segoe UI", sans-serif;
       user-select: none;
       pointer-events: auto !important;
+    }
+    @media (max-width: 1280px) {
+      .worldmap-open-pill {
+        right: 18px;
+        padding: 0 14px;
+      }
+    }
+    @media (max-width: 768px) {
+      .worldmap-open-pill {
+        right: 12px;
+        padding: 0 12px;
+        font-size: 12.5px;
+      }
     }
     .worldmap-open-pill * {
       pointer-events: none;
