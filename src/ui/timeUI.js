@@ -1,9 +1,21 @@
 // LITTLE DAY 게임 시간 및 날씨 표시 / 설정 패널 UI
 import { TimePhase } from '../systems/timeSystem.js';
-import { WeatherType, WeatherInfo } from '../systems/weatherSystem.js';
+import { WeatherInfo } from '../systems/weatherSystem.js';
+
+let activeCleanup = null;
 
 export function createTimeUI(timeSystem, moonflowerEvent = null, weatherSystem = null) {
+  if (typeof activeCleanup === 'function') {
+    activeCleanup();
+    activeCleanup = null;
+  }
+
+  const eventAbort = new AbortController();
+  const { signal } = eventAbort;
+
   // 스타일 주입
+  const prevStyle = document.getElementById('little-day-time-style');
+  if (prevStyle) prevStyle.remove();
   const style = document.createElement('style');
   style.id = 'little-day-time-style';
   style.textContent = `
@@ -490,19 +502,42 @@ export function createTimeUI(timeSystem, moonflowerEvent = null, weatherSystem =
   const weatherDescText = container.querySelector('#weather-desc-text');
   const btnToggleWeatherAuto = container.querySelector('#btn-toggle-weather-auto');
 
-  function togglePanel() {
-    container.classList.toggle('open');
-    document.body.classList.toggle('time-panel-open', container.classList.contains('open'));
-    if (container.classList.contains('open')) {
-      const info = timeSystem.getFormattedInfo();
-      selectHour.value = String(info.hour);
-      // 가장 가까운 5분 단위로 매칭
-      const roundedM = Math.floor(info.minute / 5) * 5;
-      selectMinute.value = String(roundedM);
+  function isOpen() {
+    return container.classList.contains('open');
+  }
+
+  function openPanel() {
+    if (isOpen()) return;
+    container.classList.add('open');
+    document.body.classList.add('time-panel-open');
+    const info = timeSystem.getFormattedInfo();
+    selectHour.value = String(info.hour);
+    // 가장 가까운 5분 단위로 매칭
+    const roundedM = Math.floor(info.minute / 5) * 5;
+    selectMinute.value = String(roundedM);
+  }
+
+  function closePanel() {
+    if (!isOpen()) return;
+    container.classList.remove('open');
+    document.body.classList.remove('time-panel-open');
+    if (container.contains(document.activeElement) && typeof document.activeElement.blur === 'function') {
+      document.activeElement.blur();
+    }
+    if (timeSystem && typeof timeSystem.isPaused === 'function' && timeSystem.isPaused() && typeof timeSystem.togglePause === 'function') {
+      timeSystem.togglePause();
     }
   }
 
-  pill.addEventListener('click', togglePanel);
+  function togglePanel() {
+    if (isOpen()) {
+      closePanel();
+    } else {
+      openPanel();
+    }
+  }
+
+  pill.addEventListener('click', togglePanel, { signal });
 
   // 자동 날씨 순환 토글 버튼
   if (btnToggleWeatherAuto && weatherSystem) {
@@ -512,16 +547,17 @@ export function createTimeUI(timeSystem, moonflowerEvent = null, weatherSystem =
       weatherSystem.setAutoCycle(nextAuto);
       btnToggleWeatherAuto.textContent = nextAuto ? '🎲 자동 켜짐' : '⏸️ 자동 꺼짐';
       btnToggleWeatherAuto.classList.toggle('off', !nextAuto);
-    });
+    }, { signal });
   }
 
-  // 외부 클릭 시 닫기
-  document.addEventListener('click', (e) => {
-    if (!container.contains(e.target)) {
-      container.classList.remove('open');
-      document.body.classList.remove('time-panel-open');
-    }
-  });
+  // 패널 바깥 클릭/터치 시 닫기 (내부 클릭은 유지, 모바일 터치 포함)
+  function handleOutsideInteraction(e) {
+    if (!isOpen()) return;
+    if (e.target && container.contains(e.target)) return;
+    closePanel();
+  }
+  document.addEventListener('pointerdown', handleOutsideInteraction, { capture: true, signal });
+  document.addEventListener('click', handleOutsideInteraction, { signal });
 
   // 시간 직접 변경 적용
   btnApply.addEventListener('click', (e) => {
@@ -533,7 +569,7 @@ export function createTimeUI(timeSystem, moonflowerEvent = null, weatherSystem =
     setTimeout(() => {
       btnApply.textContent = '✨ 선택한 시간으로 즉시 변경';
     }, 1200);
-  });
+  }, { signal });
 
   // 현실 시간(-1시간) 자동 모드로 복귀
   btnResetAuto.addEventListener('click', (e) => {
@@ -543,7 +579,7 @@ export function createTimeUI(timeSystem, moonflowerEvent = null, weatherSystem =
     setTimeout(() => {
       btnResetAuto.textContent = '🔄 현실 시간(-1시간) 자동 모드로 복귀';
     }, 1200);
-  });
+  }, { signal });
 
   // 프리셋 점프 버튼
   jumpBtns.forEach((btn) => {
@@ -554,7 +590,7 @@ export function createTimeUI(timeSystem, moonflowerEvent = null, weatherSystem =
       timeSystem.setTime(h, m);
       selectHour.value = String(h);
       selectMinute.value = String(Math.floor(m / 5) * 5);
-    });
+    }, { signal });
   });
 
   // 달빛 꽃 이벤트 리셋 버튼
@@ -567,11 +603,18 @@ export function createTimeUI(timeSystem, moonflowerEvent = null, weatherSystem =
       setTimeout(() => {
         resetBtn.textContent = '🔄 달빛 꽃 이벤트 리셋';
       }, 1600);
-    });
+    }, { signal });
   }
 
-  // 숫자 키 단축키 (1: 낮 09:00, 2: 저녁 18:30, 3: 밤 22:00, 4: 새벽 05:15)
+  // ESC 키로 패널 닫기 + 숫자 키 단축키 (1: 낮 09:00, 2: 저녁 18:30, 3: 밤 22:00, 4: 새벽 05:15)
   window.addEventListener('keydown', (e) => {
+    if (e.code === 'Escape' && isOpen()) {
+      e.preventDefault();
+      e.stopPropagation();
+      closePanel();
+      return;
+    }
+
     if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
 
     if (e.code === 'Digit1') {
@@ -583,7 +626,14 @@ export function createTimeUI(timeSystem, moonflowerEvent = null, weatherSystem =
     } else if (e.code === 'Digit4') {
       timeSystem.setTime(5, 15);
     }
-  });
+  }, { signal });
+
+  activeCleanup = () => {
+    eventAbort.abort();
+    document.body.classList.remove('time-panel-open');
+    container.remove();
+    style.remove();
+  };
 
   let lastPhase = null;
   let lastMode = null;
@@ -591,14 +641,9 @@ export function createTimeUI(timeSystem, moonflowerEvent = null, weatherSystem =
   let lastAutoCycle = null;
 
   return {
-    open() {
-      container.classList.add('open');
-      document.body.classList.add('time-panel-open');
-    },
-    close() {
-      container.classList.remove('open');
-      document.body.classList.remove('time-panel-open');
-    },
+    open: openPanel,
+    close: closePanel,
+    isOpen,
     update() {
       const info = timeSystem.getFormattedInfo();
       clockText.textContent = info.timeString;
