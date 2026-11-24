@@ -314,9 +314,12 @@ export function createSaveSystem({
     timeSystem.onModeChange(() => save(false));
   }
 
-  // 날씨 변경 시 자동 저장 구독
+  // 날씨 변경 및 자동 순환 설정 변경 시 자동 저장 구독
   if (weatherSystem && typeof weatherSystem.onChange === 'function') {
     weatherSystem.onChange(() => save(false));
+  }
+  if (weatherSystem && typeof weatherSystem.onAutoCycleChange === 'function') {
+    weatherSystem.onAutoCycleChange(() => save(false));
   }
 
   return {

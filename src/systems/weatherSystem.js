@@ -58,6 +58,7 @@ export function createWeatherSystem(initialWeather = WeatherType.SUNNY) {
   let cycleTimer = 0;
 
   const changeListeners = new Set();
+  const autoCycleListeners = new Set();
   const tickListeners = new Set();
 
   function notifyChange(newWeather, prevWeather) {
@@ -66,6 +67,16 @@ export function createWeatherSystem(initialWeather = WeatherType.SUNNY) {
         cb(newWeather, prevWeather);
       } catch (e) {
         console.warn('[WeatherSystem] Listener error:', e);
+      }
+    }
+  }
+
+  function notifyAutoCycleChange(enabled) {
+    for (const cb of autoCycleListeners) {
+      try {
+        cb(enabled);
+      } catch (e) {
+        console.warn('[WeatherSystem] AutoCycle listener error:', e);
       }
     }
   }
@@ -102,8 +113,13 @@ export function createWeatherSystem(initialWeather = WeatherType.SUNNY) {
       return autoCycle;
     },
     setAutoCycle(enabled) {
-      autoCycle = !!enabled;
+      const next = !!enabled;
+      const changed = autoCycle !== next;
+      autoCycle = next;
       cycleTimer = 0;
+      if (changed) {
+        notifyAutoCycleChange(autoCycle);
+      }
     },
 
     // 날씨 변경 (immediate: 즉시 변경 여부)
@@ -130,6 +146,11 @@ export function createWeatherSystem(initialWeather = WeatherType.SUNNY) {
     onChange(cb) {
       changeListeners.add(cb);
       return () => changeListeners.delete(cb);
+    },
+
+    onAutoCycleChange(cb) {
+      autoCycleListeners.add(cb);
+      return () => autoCycleListeners.delete(cb);
     },
 
     onTick(cb) {

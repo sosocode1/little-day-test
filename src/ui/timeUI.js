@@ -59,18 +59,9 @@ export function createTimeUI(timeSystem, moonflowerEvent = null, weatherSystem =
       border: 2px solid #ffd6e2;
       box-shadow: 0 4px 14px rgba(180, 130, 150, 0.2);
       color: #6a4050;
-      cursor: pointer;
+      cursor: default;
       font-size: 13px;
       font-weight: 800;
-      transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.2s ease;
-    }
-    .weather-badge-pill:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 6px 18px rgba(180, 130, 150, 0.28);
-      border-color: #ffb8cc;
-    }
-    .weather-badge-pill:active {
-      transform: scale(0.98);
     }
     .weather-badge-icon {
       font-size: 16px;
@@ -328,58 +319,28 @@ export function createTimeUI(timeSystem, moonflowerEvent = null, weatherSystem =
       padding-top: 7px;
     }
 
-    /* 날씨 직접 선택 컨트롤 박스 */
+    /* 날씨 자동 순환 상태 박스 */
     .weather-control-box {
       background: #ffffff;
       border: 1.5px solid #ffccd9;
       border-radius: 14px;
-      padding: 10px;
+      padding: 10px 11px;
       margin-bottom: 12px;
     }
-    .weather-buttons-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 5px;
-      margin-bottom: 8px;
-    }
-    .weather-select-btn {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 2px;
-      height: 44px;
-      background: #fffafa;
-      border: 1.5px solid #ffd6e2;
-      border-radius: 9px;
-      font-size: 11px;
-      font-weight: 800;
-      color: #6a4555;
-      cursor: pointer;
-      transition: all 0.15s ease;
-    }
-    .weather-select-btn .w-icon {
-      font-size: 16px;
-      line-height: 1;
-    }
-    .weather-select-btn:hover {
-      background: #fff2f6;
-      border-color: #ff8da7;
-      transform: translateY(-1px);
-    }
-    .weather-select-btn.active {
-      background: #ff8fa7;
-      border-color: #ff6588;
-      color: #ffffff;
-      box-shadow: 0 2px 8px rgba(255, 120, 150, 0.35);
-    }
-    .weather-status-row {
+    .weather-box-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 6px;
+      margin-bottom: 6px;
+    }
+    .weather-status-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
       font-size: 11px;
       color: #8b5568;
+      line-height: 1.4;
     }
     .weather-auto-toggle-btn {
       padding: 3px 8px;
@@ -436,7 +397,7 @@ export function createTimeUI(timeSystem, moonflowerEvent = null, weatherSystem =
         <span class="time-toggle-arrow">▾</span>
       </div>
 
-      <div class="weather-badge-pill" title="현재 날씨 (클릭하여 날씨 변경)">
+      <div class="weather-badge-pill" title="현재 날씨">
         <span class="weather-badge-icon">☀️</span>
         <span class="weather-badge-text">맑음</span>
       </div>
@@ -448,30 +409,14 @@ export function createTimeUI(timeSystem, moonflowerEvent = null, weatherSystem =
         <span style="font-size:11px;color:#a87e90;font-weight:700;">24시간제</span>
       </div>
 
-      <!-- 날씨 선택 컨트롤 -->
+      <!-- 날씨 자동 순환 제어 -->
       <div class="weather-control-box">
-        <div style="font-size:11px;font-weight:800;color:#8a5068;margin-bottom:6px;">⛅ 날씨 직접 선택</div>
-        <div class="weather-buttons-grid">
-          <button class="weather-select-btn active" data-weather="sunny">
-            <span class="w-icon">☀️</span>
-            <span>맑음</span>
-          </button>
-          <button class="weather-select-btn" data-weather="cloudy">
-            <span class="w-icon">☁️</span>
-            <span>흐림</span>
-          </button>
-          <button class="weather-select-btn" data-weather="rainy">
-            <span class="w-icon">🌧️</span>
-            <span>비</span>
-          </button>
-          <button class="weather-select-btn" data-weather="foggy">
-            <span class="w-icon">🌫️</span>
-            <span>안개</span>
-          </button>
+        <div class="weather-box-header">
+          <span style="font-size:11px;font-weight:800;color:#8a5068;">⛅ 날씨 자동 순환</span>
+          <button class="weather-auto-toggle-btn" id="btn-toggle-weather-auto">🎲 자동 켜짐</button>
         </div>
         <div class="weather-status-row">
-          <span id="weather-desc-text" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">☀️ 화창하고 따뜻한 햇살이 내리쬡니다.</span>
-          <button class="weather-auto-toggle-btn" id="btn-toggle-weather-auto">🎲 자동 켜짐</button>
+          <span id="weather-desc-text">☀️ 화창하고 따뜻한 햇살이 내리쬡니다.</span>
         </div>
       </div>
 
@@ -525,7 +470,6 @@ export function createTimeUI(timeSystem, moonflowerEvent = null, weatherSystem =
   document.body.appendChild(container);
 
   const pill = container.querySelector('.time-badge-pill');
-  const weatherPill = container.querySelector('.weather-badge-pill');
   const weatherBadgeIcon = container.querySelector('.weather-badge-icon');
   const weatherBadgeText = container.querySelector('.weather-badge-text');
 
@@ -543,7 +487,6 @@ export function createTimeUI(timeSystem, moonflowerEvent = null, weatherSystem =
   const btnResetAuto = container.querySelector('#btn-reset-real-time');
   const jumpBtns = container.querySelectorAll('.time-jump-btn');
 
-  const weatherBtns = container.querySelectorAll('.weather-select-btn');
   const weatherDescText = container.querySelector('#weather-desc-text');
   const btnToggleWeatherAuto = container.querySelector('#btn-toggle-weather-auto');
 
@@ -560,20 +503,6 @@ export function createTimeUI(timeSystem, moonflowerEvent = null, weatherSystem =
   }
 
   pill.addEventListener('click', togglePanel);
-  if (weatherPill) {
-    weatherPill.addEventListener('click', togglePanel);
-  }
-
-  // 날씨 선택 버튼 이벤트
-  if (weatherBtns && weatherSystem) {
-    weatherBtns.forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const wType = btn.dataset.weather;
-        weatherSystem.setWeather(wType, false);
-      });
-    });
-  }
 
   // 자동 날씨 순환 토글 버튼
   if (btnToggleWeatherAuto && weatherSystem) {
@@ -711,12 +640,6 @@ export function createTimeUI(timeSystem, moonflowerEvent = null, weatherSystem =
           if (weatherBadgeIcon) weatherBadgeIcon.textContent = wInfo.icon;
           if (weatherBadgeText) weatherBadgeText.textContent = wInfo.name;
           if (weatherDescText) weatherDescText.textContent = `${wInfo.icon} ${wInfo.desc}`;
-
-          if (weatherBtns) {
-            weatherBtns.forEach((btn) => {
-              btn.classList.toggle('active', btn.dataset.weather === activeW);
-            });
-          }
         }
 
         if (btnToggleWeatherAuto && isAuto !== lastAutoCycle) {
