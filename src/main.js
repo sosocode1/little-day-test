@@ -166,7 +166,7 @@ renderer.setAnimationLoop((time) => {
 
   // 동적 환경 업데이트 (낮과 밤 태양/달 궤도, 하늘/안개 색상, 가로등/창문/반딧불이 및 활성 지역 갱신)
   if (world.update) {
-    world.update(player.position, spaceManager.isIndoor(), dt, spaceManager.getCurrentSpace(), areaManager);
+    world.update(player.position, spaceManager.isIndoor(), dt, spaceManager.getCurrentSpace(), areaManager, camera.position);
   }
 
   // 상호작용 및 NPC/꽃/별장/퀘스트 업데이트

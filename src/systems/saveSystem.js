@@ -314,6 +314,11 @@ export function createSaveSystem({
     timeSystem.onModeChange(() => save(false));
   }
 
+  // 날씨 변경 시 자동 저장 구독
+  if (weatherSystem && typeof weatherSystem.onChange === 'function') {
+    weatherSystem.onChange(() => save(false));
+  }
+
   return {
     save,
     load,

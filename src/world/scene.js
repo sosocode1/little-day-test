@@ -14,7 +14,7 @@ export function createScene(timeSystem) {
 
   // 2. 날씨 시스템 및 3D 시각/음향 효과
   const weatherSystem = createWeatherSystem();
-  const weatherEffects = createWeatherEffects(scene, weatherSystem);
+  const weatherEffects = createWeatherEffects(scene, weatherSystem, timeSystem);
 
   // 3. 기본 거점 마을 초기화
   const village = createVillage();
@@ -35,19 +35,22 @@ export function createScene(timeSystem) {
     boundaryRadius: BOUNDARY_RADIUS,
     spawn: village.spawn,
     npcs: village.npcs,
-    update(playerPos, isIndoor = false, dt = 0.016, currentAreaId = 'village', areaManager = null) {
+    update(playerPos, isIndoor = false, dt = 0.016, currentAreaId = 'village', areaManager = null, cameraPos = null) {
       // 날씨 시스템 및 파티클/사운드 갱신
       weatherSystem.update(dt);
-      weatherEffects.update(playerPos, isIndoor, dt);
+      weatherEffects.update(playerPos, isIndoor, dt, cameraPos);
 
       if (!isIndoor) {
         // 야외: 시간대 기본 조명과 날씨 계수 결합 갱신
+        dayNightCycle.setIndoor(false);
         dayNightCycle.update(playerPos, weatherEffects.getCurrentModifiers());
         if (currentAreaId === 'village') {
           nightEffects.update(dt, timeSystem, false);
         } else if (areaManager) {
           areaManager.update(dt, timeSystem.isNight());
         }
+      } else {
+        dayNightCycle.setIndoor(true);
       }
     },
   };
