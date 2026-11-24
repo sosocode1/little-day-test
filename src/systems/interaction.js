@@ -26,6 +26,11 @@ export function createInteractionSystem(
   let nearestFlower = null;
   let activeNpc = null;
   let cooldownTimer = 0;
+  let promptTapRequested = false;
+
+  ui.onPromptTap(() => {
+    promptTapRequested = true;
+  });
 
   return {
     ui,
@@ -71,7 +76,8 @@ export function createInteractionSystem(
       const isWardrobeOpen = wardrobeUI && wardrobeUI.isOpen();
       const isVanityOpen = vanityUI && vanityUI.isOpen();
       const isTransitioning = spaceManager && spaceManager.isTransitioning();
-      const interactPressed = input.consumeInteract();
+      const interactPressed = input.consumeInteract() || promptTapRequested;
+      promptTapRequested = false;
       if (cooldownTimer > 0) cooldownTimer -= dt;
 
       // 1. NPC들의 아이들 애니메이션 및 시선 업데이트 (마을 야외일 때만)
@@ -126,9 +132,11 @@ export function createInteractionSystem(
         for (const trig of Object.values(activeCottage.triggers)) {
           const dist = Math.hypot(playerPos.x - trig.x, playerPos.z - trig.z);
           if (dist <= trig.radius) {
+            const trigIcons = { exit: '🚪', wardrobe: '👗', mirror: '🪞', bed: '🛏️' };
             candidates.push({
               id: trig.id,
               type: 'indoor_trigger',
+              icon: trigIcons[trig.id] || '✨',
               dist,
               prompt: trig.prompt,
               execute: () => {
@@ -184,6 +192,7 @@ export function createInteractionSystem(
             candidates.push({
               id: 'cottage_entrance',
               type: 'cottage_entrance',
+              icon: '🏡',
               dist,
               prompt: '우리 집(MY LITTLE HOME) 들어가기',
               execute: () => {
@@ -207,6 +216,7 @@ export function createInteractionSystem(
               candidates.push({
                 id: flower.id || 'flower',
                 type: 'flower',
+                icon: '🌸',
                 dist,
                 prompt: '분홍색 꽃 꺾기',
                 execute: () => {
@@ -227,6 +237,7 @@ export function createInteractionSystem(
             candidates.push({
               id: npc.id || npc.type,
               type: 'npc',
+              icon: '💬',
               dist,
               prompt: `${npc.data.name}와 대화하기`,
               execute: () => {
@@ -261,6 +272,7 @@ export function createInteractionSystem(
             candidates.push({
               id: 'moonflower',
               type: 'mystery_event',
+              icon: '🌙',
               dist,
               prompt: '신비로운 달빛 꽃 꺾기',
               execute: () => {
@@ -277,8 +289,9 @@ export function createInteractionSystem(
             candidates.push({
               id: 'forest_entrance',
               type: 'forest_entrance',
+              icon: '🌲',
               dist,
-              prompt: '속삭이는 숲(Whispering Forest) 들어가기 🌲',
+              prompt: '속삭이는 숲 들어가기',
               execute: () => {
                 if (spaceManager) spaceManager.enterForest();
               }
@@ -298,8 +311,9 @@ export function createInteractionSystem(
               candidates.push({
                 id: 'forest_exit',
                 type: 'forest_exit',
+                icon: '🏡',
                 dist,
-                prompt: trig.prompt || '마을 광장으로 돌아가기 🏡',
+                prompt: (trig.prompt || '마을 광장으로 돌아가기').replace(/\s*🏡\s*$/, ''),
                 execute: () => {
                   if (spaceManager) spaceManager.exitForest();
                 }
@@ -316,8 +330,9 @@ export function createInteractionSystem(
                 candidates.push({
                   id: item.id,
                   type: 'forest_collectible',
+                  icon: item.icon || '🌿',
                   dist,
-                  prompt: `${item.itemName} ${actionVerb} ${item.icon}`,
+                  prompt: `${item.itemName} ${actionVerb}`,
                   execute: () => {
                     item.collect();
                   }
@@ -333,8 +348,9 @@ export function createInteractionSystem(
           candidates.push({
             id: 'island_dock_exit',
             type: 'island_exit',
+            icon: '⛵',
             dist,
-            prompt: '나룻배 타고 마을 광장으로 돌아가기 ⛵',
+            prompt: '나룻배 타고 마을 광장으로 돌아가기',
             execute: () => {
               if (spaceManager) spaceManager.travelTo('village');
             }
@@ -347,8 +363,9 @@ export function createInteractionSystem(
           candidates.push({
             id: 'mansion_gate_exit',
             type: 'mansion_exit',
+            icon: '🏡',
             dist,
-            prompt: '정원 문을 열고 마을 광장으로 돌아가기 🏡',
+            prompt: '정원 문을 열고 마을 광장으로 돌아가기',
             execute: () => {
               if (spaceManager) spaceManager.travelTo('village');
             }
@@ -368,7 +385,7 @@ export function createInteractionSystem(
       candidates.sort((a, b) => a.dist - b.dist);
       const target = candidates[0];
 
-      ui.showPrompt(target.prompt);
+      ui.showPrompt(target.prompt, target.icon || '✨');
 
       if (interactPressed && cooldownTimer <= 0) {
         cooldownTimer = 0.4;
