@@ -80,6 +80,20 @@ function createItemVisualMarkup(item, sizeClass = '') {
     `;
   }
 
+  if (type === 'old_voyage_log') {
+    return `
+      <svg class="inv-item-svg ${sizeClass}" viewBox="0 0 64 64" aria-hidden="true">
+        <circle cx="32" cy="32" r="28" fill="#f2f0ff"/>
+        <rect x="17" y="15" width="30" height="34" rx="6" fill="#f7e4c2" stroke="#cca571" stroke-width="2.4"/>
+        <rect x="14" y="14" width="36" height="7" rx="3.5" fill="#e9cca0" stroke="#c49a64" stroke-width="2"/>
+        <rect x="14" y="43" width="36" height="7" rx="3.5" fill="#e9cca0" stroke="#c49a64" stroke-width="2"/>
+        <path d="M23 26 H41 M23 32 H39 M23 38 H35" stroke="#8f6c47" stroke-width="2.2" stroke-linecap="round"/>
+        <circle cx="44" cy="20" r="4.5" fill="#89a8f5"/>
+        <circle cx="44" cy="20" r="2" fill="#ffffff"/>
+      </svg>
+    `;
+  }
+
   return `<span class="inv-item-emoji ${sizeClass}">${item?.icon || '📦'}</span>`;
 }
 
@@ -846,7 +860,9 @@ export function createInventoryUI(inventorySystem) {
         ? '🌸 폭시의 작은 부탁 퀘스트 연동 아이템 · 보관 중'
         : selectedItem.id === 'shiny_shell'
           ? '🐚 퀘스트 완료 보상 · 추후 퀘스트/퍼즐에 활용 가능'
-          : '🎒 가방에 안전하게 보관 중';
+          : selectedItem.id === 'old_voyage_log'
+            ? '📜 사라진 등대의 비밀 단서 기록 · 섬의 과거와 연결된 단서'
+            : '🎒 가방에 안전하게 보관 중';
 
     detailContainer.innerHTML = `
       <div class="inv-detail-card">

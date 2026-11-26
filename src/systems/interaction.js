@@ -1,7 +1,8 @@
 import { createDialogueUI } from '../ui/dialogueUI.js';
 import { createNpcOverheadUI } from '../ui/npcOverheadUI.js';
 import { resolveNpcDialogueTree } from '../data/dialogue.js';
-import { QuestState, QUEST_DATA, DIALOGUE_QUEST_HOOKS } from '../data/quest.js';
+import { QuestState, QUEST_DATA, LIGHTHOUSE_QUEST_DATA, DIALOGUE_QUEST_HOOKS } from '../data/quest.js';
+import { LIGHTHOUSE_LORE } from '../data/lighthousePuzzle.js';
 
 export function createInteractionSystem(
   npcs = [],
@@ -21,7 +22,10 @@ export function createInteractionSystem(
   areaManager = null,
   worldMapUI = null,
   timeSystem = null,
-  saveSystem = null
+  saveSystem = null,
+  lighthousePuzzleSystem = null,
+  clueUI = null,
+  lighthousePuzzleUI = null
 ) {
   const ui = createDialogueUI();
   const overheadUI = createNpcOverheadUI();
@@ -30,6 +34,7 @@ export function createInteractionSystem(
   let activeNpc = null;
   let cooldownTimer = 0;
   let promptTapRequested = false;
+  let lighthouseApproachNotifiedThisVisit = false;
 
   ui.onPromptTap(() => {
     promptTapRequested = true;
@@ -157,7 +162,7 @@ export function createInteractionSystem(
     setSaveSystem(ss) {
       saveSystem = ss;
     },
-    // 대화창, 전달 확인창, 보상 모달, 보관함, 옷장, 화장대, 환영 가이드, 월드맵 또는 공간 전환 중인지 여부 (플레이어 이동 잠금용)
+    // 대화창, 전달 확인창, 보상 모달, 보관함, 옷장, 화장대, 환영 가이드, 월드맵, 단서창, 퍼즐창 또는 공간 전환 중인지 여부 (플레이어 이동 잠금용)
     isInteracting() {
       return (
         ui.isOpen() ||
@@ -168,6 +173,8 @@ export function createInteractionSystem(
         (vanityUI && vanityUI.isOpen()) ||
         (welcomeGuideUI && welcomeGuideUI.isOpen()) ||
         (worldMapUI && worldMapUI.isOpen()) ||
+        (clueUI && clueUI.isOpen()) ||
+        (lighthousePuzzleUI && lighthousePuzzleUI.isOpen()) ||
         (spaceManager && spaceManager.isTransitioning())
       );
     },
@@ -191,6 +198,9 @@ export function createInteractionSystem(
 
       // 1. NPC들의 아이들 애니메이션 및 시선 업데이트 (마을 야외일 때만)
       const currentSpace = spaceManager ? spaceManager.getCurrentSpace() : 'village';
+      if (currentSpace !== 'moonlight_island') {
+        lighthouseApproachNotifiedThisVisit = false;
+      }
       if (flowerManager && typeof flowerManager.setVisible === 'function') {
         flowerManager.setVisible(currentSpace === 'village');
       }
@@ -210,6 +220,8 @@ export function createInteractionSystem(
       }
 
       const isWorldMapOpen = worldMapUI && worldMapUI.isOpen();
+      const isClueOpen = clueUI && clueUI.isOpen();
+      const isPuzzleOpen = lighthousePuzzleUI && lighthousePuzzleUI.isOpen();
       const isNight = Boolean(timeSystem && typeof timeSystem.isNight === 'function' && timeSystem.isNight());
       const canShowOverhead =
         currentSpace === 'village' &&
@@ -220,7 +232,9 @@ export function createInteractionSystem(
         !isInventoryOpen &&
         !isWardrobeOpen &&
         !isVanityOpen &&
-        !isWorldMapOpen;
+        !isWorldMapOpen &&
+        !isClueOpen &&
+        !isPuzzleOpen;
 
       // 동물 NPC 머리 위 이름표 & 말풍선/느낌표/밤 단서 표시 갱신
       overheadUI.update({
@@ -235,8 +249,17 @@ export function createInteractionSystem(
             : 'talk'
       });
 
-      // 전환 중이거나 전달 확인창/인벤토리/옷장/화장대/월드맵이 열려 있는 경우 프롬프트 숨김 및 입력 스킵
-      if (isTransitioning || isDeliveryOpen || isInventoryOpen || isWardrobeOpen || isVanityOpen || isWorldMapOpen) {
+      // 전환 중이거나 전달 확인창/인벤토리/옷장/화장대/월드맵/단서창/퍼즐창이 열려 있는 경우 프롬프트 숨김 및 입력 스킵
+      if (
+        isTransitioning ||
+        isDeliveryOpen ||
+        isInventoryOpen ||
+        isWardrobeOpen ||
+        isVanityOpen ||
+        isWorldMapOpen ||
+        isClueOpen ||
+        isPuzzleOpen
+      ) {
         ui.hidePrompt();
         return;
       }
@@ -506,19 +529,225 @@ export function createInteractionSystem(
           }
         }
       } else if (currentSpace === 'moonlight_island') {
-        // [달빛 섬 상호작용 후보]: 부두 나룻배를 타고 마을 복귀
-        const dist = Math.hypot(playerPos.x - 0, playerPos.z - 11);
-        if (dist <= 2.8) {
+        const islandArea = areaManager ? areaManager.getCurrentArea() : null;
+        const inter = islandArea?.interactables;
+
+        // (0) 등대 근처 접근 탐험 안내 및 메인 퀘스트('사라진 등대의 비밀') 시작/갱신
+        if (inter && lighthousePuzzleSystem) {
+          const distToLighthouse = Math.hypot(
+            playerPos.x - inter.lighthouseCenter.x,
+            playerPos.z - inter.lighthouseCenter.z
+          );
+          if (distToLighthouse <= inter.approachRadius) {
+            const firstApproach = lighthousePuzzleSystem.markApproached();
+            if (firstApproach) {
+              lighthouseApproachNotifiedThisVisit = true;
+              if (questSystem?.ui?.showToast) {
+                questSystem.ui.showToast(
+                  '오래된 하얀 등대에 다가왔습니다! 등대 입구와 주변 단서를 조사해 보세요 🏛️✨',
+                  '🏛️',
+                  3600
+                );
+              }
+            } else if (!lighthouseApproachNotifiedThisVisit && !lighthousePuzzleSystem.isRewardClaimed()) {
+              lighthouseApproachNotifiedThisVisit = true;
+              if (questSystem?.ui?.showToast) {
+                const msg = lighthousePuzzleSystem.isPuzzleSolved()
+                  ? '등대 왼쪽 기단의 열린 비밀 석함에서 오래된 항해 기록을 확인해 보세요! 📜✨'
+                  : '오래된 등대 주변에 숨겨진 단서와 고대 장치가 있습니다. 가까이 다가가 [E]로 조사해 보세요 🔍';
+                questSystem.ui.showToast(msg, '🏛️', 3200);
+              }
+            }
+          }
+        }
+
+        // (1) 부두 나룻배를 타고 마을 복귀
+        const distDock = Math.hypot(playerPos.x - 0, playerPos.z - 11);
+        if (distDock <= 2.8) {
           candidates.push({
             id: 'island_dock_exit',
             type: 'island_exit',
             icon: '⛵',
-            dist,
+            dist: distDock,
             prompt: '나룻배 타고 마을 광장으로 돌아가기',
             execute: () => {
+              lighthouseApproachNotifiedThisVisit = false;
               if (spaceManager) spaceManager.travelTo('village');
             }
           });
+        }
+
+        if (inter && lighthousePuzzleSystem) {
+          // (2) 등대 입구 조사
+          const distEntrance = Math.hypot(playerPos.x - inter.entrance.x, playerPos.z - inter.entrance.z);
+          if (distEntrance <= inter.entrance.radius) {
+            candidates.push({
+              id: 'lighthouse_entrance',
+              type: 'lighthouse_entrance',
+              icon: '🚪',
+              dist: distEntrance,
+              prompt: '등대 입구 조사하기',
+              execute: () => {
+                const res = lighthousePuzzleSystem.inspectEntrance();
+                const lore = res.puzzleSolved ? LIGHTHOUSE_LORE.entranceUnlocked : LIGHTHOUSE_LORE.entranceLocked;
+                const pState = lighthousePuzzleSystem.getState();
+                if (clueUI) {
+                  clueUI.open({
+                    ...lore,
+                    discoveredCount: pState.discoveredClueCount,
+                    totalClues: pState.totalClues
+                  });
+                }
+              }
+            });
+          }
+
+          // (3) 오래된 등대의 장치 (퍼즐 UI 열기)
+          const distDevice = Math.hypot(playerPos.x - inter.device.x, playerPos.z - inter.device.z);
+          if (distDevice <= inter.device.radius) {
+            const solved = lighthousePuzzleSystem.isPuzzleSolved();
+            candidates.push({
+              id: 'lighthouse_device',
+              type: 'lighthouse_device',
+              icon: solved ? '✨' : '🏛️',
+              dist: distDevice,
+              prompt: solved ? '작동된 등대 장치 확인하기' : '오래된 등대 장치 조사하기',
+              execute: () => {
+                lighthousePuzzleSystem.inspectDevice();
+                if (lighthousePuzzleUI) {
+                  lighthousePuzzleUI.open({
+                    onSolved: () => {
+                      if (islandArea && typeof islandArea.triggerSolveCelebration === 'function') {
+                        islandArea.triggerSolveCelebration();
+                      }
+                      if (islandArea && typeof islandArea.syncPuzzleState === 'function') {
+                        islandArea.syncPuzzleState(lighthousePuzzleSystem.getState());
+                      }
+                      if (questSystem?.ui?.showToast) {
+                        questSystem.ui.showToast(
+                          '등대 장치가 깨어났습니다! 왼쪽 기단의 열린 비밀 석함을 조사해 보세요 ✨📜',
+                          '🌟',
+                          3800
+                        );
+                      }
+                    }
+                  });
+                }
+              }
+            });
+          }
+
+          // (4) 숨겨진 비밀 석함 (잠김 안내 / 퍼즐 성공 후 '오래된 항해 기록' 획득)
+          const distVault = Math.hypot(playerPos.x - inter.vault.x, playerPos.z - inter.vault.z);
+          if (distVault <= inter.vault.radius) {
+            const solved = lighthousePuzzleSystem.isPuzzleSolved();
+            const claimed = lighthousePuzzleSystem.isRewardClaimed();
+            candidates.push({
+              id: 'lighthouse_vault',
+              type: 'lighthouse_vault',
+              icon: !solved ? '🔒' : claimed ? '📜' : '✨',
+              dist: distVault,
+              prompt: !solved
+                ? '봉인된 돌 석함 조사하기'
+                : claimed
+                  ? '오래된 항해 기록 다시 읽기'
+                  : '숨겨진 비밀 석함에서 항해 기록 꺼내기',
+              execute: () => {
+                if (!solved) {
+                  if (clueUI) {
+                    const pState = lighthousePuzzleSystem.getState();
+                    clueUI.open({
+                      ...LIGHTHOUSE_LORE.vaultLocked,
+                      discoveredCount: pState.discoveredClueCount,
+                      totalClues: pState.totalClues
+                    });
+                  }
+                  return;
+                }
+
+                if (claimed) {
+                  if (clueUI) {
+                    clueUI.open({
+                      ...LIGHTHOUSE_LORE.voyageLogStory,
+                      subtitle: '획득 완료된 이야기 단서'
+                    });
+                  }
+                  return;
+                }
+
+                // 최초 보상 획득: 인벤토리 추가 + 퀘스트 완료 + 이야기 단서 열람 → 보상 모달
+                const claimRes = lighthousePuzzleSystem.claimSecretReward();
+                if (claimRes && claimRes.ok) {
+                  if (islandArea && typeof islandArea.syncPuzzleState === 'function') {
+                    islandArea.syncPuzzleState(lighthousePuzzleSystem.getState());
+                  }
+                  const rewardDef = LIGHTHOUSE_QUEST_DATA.rewards[0];
+                  const showQuestReward = () => {
+                    if (questSystem?.ui?.showRewardModal) {
+                      questSystem.ui.showRewardModal({
+                        title: LIGHTHOUSE_QUEST_DATA.title,
+                        subtitle: '오래된 등대의 장치를 풀어 숨겨진 기록을 발견했습니다!',
+                        ...rewardDef
+                      });
+                    }
+                  };
+                  if (clueUI) {
+                    clueUI.open(
+                      {
+                        ...LIGHTHOUSE_LORE.voyageLogStory,
+                        isNew: true,
+                        subtitle: '새로운 이야기 단서 획득!',
+                        buttonText: '기록 획득하기 📜'
+                      },
+                      showQuestReward
+                    );
+                  } else {
+                    showQuestReward();
+                  }
+                }
+              }
+            });
+          }
+
+          // (5) 등대 주변 단서 4종 조사
+          for (const clue of inter.clues || []) {
+            const distClue = Math.hypot(playerPos.x - clue.position.x, playerPos.z - clue.position.z);
+            if (distClue <= clue.interactRadius) {
+              const alreadyFound = lighthousePuzzleSystem.hasDiscoveredClue(clue.id);
+              candidates.push({
+                id: clue.id,
+                type: 'lighthouse_clue',
+                icon: clue.icon || '🔍',
+                dist: distClue,
+                prompt: alreadyFound ? `${clue.title} 다시 살펴보기` : clue.prompt,
+                execute: () => {
+                  const res = lighthousePuzzleSystem.discoverClue(clue.id);
+                  if (islandArea && typeof islandArea.syncPuzzleState === 'function') {
+                    islandArea.syncPuzzleState(lighthousePuzzleSystem.getState());
+                  }
+                  if (res.isNew && questSystem?.ui?.showToast) {
+                    questSystem.ui.showToast(
+                      `단서 발견: ${clue.title} (${res.discoveredCount}/${res.totalClues}) 🔍`,
+                      clue.icon || '🔍',
+                      2800
+                    );
+                  }
+                  if (clueUI) {
+                    clueUI.open({
+                      title: clue.title,
+                      location: clue.location,
+                      icon: clue.icon,
+                      body: clue.body,
+                      hintSummary: clue.hintSummary,
+                      isNew: res.isNew,
+                      discoveredCount: res.discoveredCount,
+                      totalClues: res.totalClues
+                    });
+                  }
+                }
+              });
+            }
+          }
         }
       } else if (currentSpace === 'old_mansion') {
         // [오래된 저택 상호작용 후보]: 정원 문을 열고 마을 복귀

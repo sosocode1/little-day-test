@@ -3,37 +3,116 @@ export function createQuestUI() {
   // 기존 잔존 요소 정리 (HMR 등 중복 방지)
   const existingStyle = document.getElementById('little-day-quest-style');
   if (existingStyle) existingStyle.remove();
-  document.querySelectorAll('.quest-panel, .collect-toast, .reward-modal-backdrop, .delivery-modal-backdrop').forEach((el) => el.remove());
+  document.querySelectorAll('.quest-stack, .quest-panel, .collect-toast, .reward-modal-backdrop, .delivery-modal-backdrop').forEach((el) => el.remove());
 
   // 스타일 주입
   const style = document.createElement('style');
   style.id = 'little-day-quest-style';
   style.textContent = `
-    /* 우측 상단 퀘스트 패널 (월드맵 버튼 아래 배치) */
-    .quest-panel {
+    /* 우측 상단 다중 퀘스트 스택 컨테이너 (월드맵 버튼 아래 배치) */
+    .quest-stack {
       position: fixed;
       top: 76px;
       right: 24px;
-      width: 250px;
+      width: 260px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      z-index: 100;
+      pointer-events: none;
+    }
+    /* 우측 상단 퀘스트 패널 */
+    .quest-panel {
+      width: 100%;
+      box-sizing: border-box;
       background: rgba(255, 253, 250, 0.94);
       backdrop-filter: blur(10px);
       border-radius: 20px;
-      padding: 16px 18px;
+      padding: 15px 17px;
       box-shadow: 0 10px 30px rgba(180, 130, 150, 0.22);
       border: 2px solid #ffd6e2;
-      font-family: "Segoe UI", sans-serif;
+      font-family: "Pretendard", "Segoe UI", sans-serif;
       color: #4a343e;
       user-select: none;
-      z-index: 100;
+      display: none;
       opacity: 0;
       transform: translateX(20px);
       transition: opacity 0.3s ease, transform 0.3s ease;
       pointer-events: none;
     }
     .quest-panel.visible {
+      display: block;
       opacity: 1;
       transform: translateX(0);
       pointer-events: auto;
+    }
+    .quest-panel.main-quest-panel {
+      border-color: #d6ccfa;
+      box-shadow: 0 10px 28px rgba(125, 112, 178, 0.22);
+    }
+    .quest-panel.main-quest-panel .quest-panel-header {
+      color: #543e8a;
+      border-bottom-color: #e4ddfb;
+    }
+    .quest-panel.main-quest-panel .quest-badge {
+      background: #efe9ff;
+      color: #5d439c;
+    }
+    .quest-panel.main-quest-panel .quest-badge.complete {
+      background: #cfeedd;
+      color: #2b7a4b;
+    }
+    .quest-panel.main-quest-panel .quest-progress-bar-bg {
+      background: #eee9fa;
+    }
+    .quest-panel.main-quest-panel .quest-progress-bar-fill {
+      background: linear-gradient(90deg, #a7b8ff, #8e9df7);
+    }
+    .quest-steps-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin: 6px 0 8px;
+      padding: 0;
+      list-style: none;
+    }
+    .quest-step-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11.8px;
+      font-weight: 700;
+      color: #9b8ca8;
+      line-height: 1.35;
+    }
+    .quest-step-item.done {
+      color: #3f8a62;
+      text-decoration: line-through;
+      opacity: 0.84;
+    }
+    .quest-step-item.active {
+      color: #4b3578;
+      font-weight: 900;
+    }
+    .quest-step-dot {
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9.5px;
+      flex-shrink: 0;
+      background: #eee9f8;
+      color: #8d7ea8;
+    }
+    .quest-step-item.done .quest-step-dot {
+      background: #d3f2e0;
+      color: #27784b;
+    }
+    .quest-step-item.active .quest-step-dot {
+      background: #92a2ff;
+      color: #ffffff;
     }
     .quest-panel.pulse {
       animation: questProgressPulse 0.42s cubic-bezier(0.22, 1, 0.36, 1);
@@ -51,18 +130,22 @@ export function createQuestUI() {
       100% { transform: scale(1); }
     }
     @media (max-width: 1280px) {
-      .quest-panel {
-        width: 220px;
+      .quest-stack {
+        width: 230px;
         right: 18px;
         top: 74px;
+      }
+      .quest-panel {
         padding: 13px 15px;
       }
     }
     @media (max-width: 768px) {
-      .quest-panel {
-        width: 195px;
+      .quest-stack {
+        width: 205px;
         right: 12px;
         top: 70px;
+      }
+      .quest-panel {
         padding: 10px 12px;
       }
     }
@@ -531,7 +614,39 @@ export function createQuestUI() {
   `;
   document.head.appendChild(style);
 
-  // 1. 퀘스트 패널 DOM 생성
+  // 1. 퀘스트 스택 및 패널 DOM 생성 (메인 퀘스트 + 기존 폭시 퀘스트 동시 지원)
+  const stackEl = document.createElement('div');
+  stackEl.className = 'quest-stack';
+  document.body.appendChild(stackEl);
+
+  // (A) 메인 퀘스트 패널: 사라진 등대의 비밀 (5단계 실시간 갱신)
+  const mainPanelEl = document.createElement('div');
+  mainPanelEl.className = 'quest-panel main-quest-panel';
+  mainPanelEl.innerHTML = `
+    <div class="quest-panel-header">
+      <span>🏛️</span>
+      <span class="quest-title-text main-quest-title">사라진 등대의 비밀</span>
+      <span class="quest-badge main-quest-badge">진행 중</span>
+    </div>
+    <ul class="quest-steps-list"></ul>
+    <div class="quest-progress-bar-bg">
+      <div class="quest-progress-bar-fill main-quest-fill"></div>
+    </div>
+    <div class="quest-progress-text">
+      <span class="main-quest-hint">달빛 섬 등대 주변을 탐색해 보세요</span>
+      <span class="main-quest-count">0/5</span>
+    </div>
+  `;
+  stackEl.appendChild(mainPanelEl);
+
+  const mainTitleEl = mainPanelEl.querySelector('.main-quest-title');
+  const mainBadgeEl = mainPanelEl.querySelector('.main-quest-badge');
+  const mainStepsEl = mainPanelEl.querySelector('.quest-steps-list');
+  const mainFillEl = mainPanelEl.querySelector('.main-quest-fill');
+  const mainHintEl = mainPanelEl.querySelector('.main-quest-hint');
+  const mainCountEl = mainPanelEl.querySelector('.main-quest-count');
+
+  // (B) 기존 퀘스트 패널: 폭시의 작은 부탁
   const panelEl = document.createElement('div');
   panelEl.className = 'quest-panel';
   panelEl.innerHTML = `
@@ -549,7 +664,7 @@ export function createQuestUI() {
       <span class="quest-count">0/3</span>
     </div>
   `;
-  document.body.appendChild(panelEl);
+  stackEl.appendChild(panelEl);
 
   const titleEl = panelEl.querySelector('.quest-title-text');
   const badgeEl = panelEl.querySelector('.quest-badge');
@@ -691,6 +806,67 @@ export function createQuestUI() {
     },
     hidePanel() {
       panelEl.classList.remove('visible');
+    },
+    // 메인 퀘스트 ('사라진 등대의 비밀' 등 다단계 퀘스트) 실시간 패널 갱신
+    updateMainQuest(questState) {
+      if (!questState || !questState.active) {
+        mainPanelEl.classList.remove('visible');
+        return;
+      }
+
+      mainPanelEl.classList.add('visible');
+      mainTitleEl.textContent = questState.title || '사라진 등대의 비밀';
+
+      const steps = Array.isArray(questState.steps) ? questState.steps : [];
+      const completedSet = new Set(Array.isArray(questState.completedSteps) ? questState.completedSteps : []);
+      const total = steps.length || 5;
+      const doneCount = Math.min(total, completedSet.size);
+      const isCompleted = Boolean(questState.completed || doneCount >= total);
+      const pct = Math.min(100, (doneCount / total) * 100);
+
+      mainFillEl.style.width = `${pct}%`;
+      mainCountEl.textContent = `${doneCount}/${total}`;
+
+      let firstPendingFound = false;
+      mainStepsEl.innerHTML = steps
+        .map((step, idx) => {
+          const done = completedSet.has(step.id);
+          let isActive = false;
+          if (!done && !firstPendingFound) {
+            firstPendingFound = true;
+            isActive = true;
+          }
+          const extra =
+            step.id === 'find_clues' && typeof questState.discoveredClueCount === 'number' && typeof questState.totalClues === 'number'
+              ? ` (${questState.discoveredClueCount}/${questState.totalClues})`
+              : '';
+          const cls = done ? 'done' : isActive ? 'active' : '';
+          const dotText = done ? '✓' : String(idx + 1);
+          return `
+            <li class="quest-step-item ${cls}">
+              <span class="quest-step-dot">${dotText}</span>
+              <span>${step.label}${extra}</span>
+            </li>
+          `;
+        })
+        .join('');
+
+      mainPanelEl.classList.remove('pulse');
+      void mainPanelEl.offsetWidth;
+
+      if (isCompleted) {
+        mainBadgeEl.textContent = '완료됨';
+        mainBadgeEl.className = 'quest-badge main-quest-badge complete';
+        mainHintEl.textContent = '오래된 항해 기록 획득 ✨';
+        mainPanelEl.classList.add('completed-celebrate');
+      } else {
+        mainBadgeEl.textContent = '메인 진행';
+        mainBadgeEl.className = 'quest-badge main-quest-badge';
+        const activeStep = steps.find((s) => !completedSet.has(s.id));
+        mainHintEl.textContent = activeStep ? `목표: ${activeStep.label}` : '등대의 비밀을 밝혀보세요';
+        mainPanelEl.classList.remove('completed-celebrate');
+        mainPanelEl.classList.add('pulse');
+      }
     },
     // 퀘스트 진행 상태 업데이트 (5단계 상태 표시 지원)
     updateQuestProgress(current, target, isReady, isCompleted, stateOverride = null) {

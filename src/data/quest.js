@@ -74,9 +74,34 @@ export const QUEST_DATA = {
   }
 };
 
+// 첫 번째 메인 환경 탐험 퀘스트: 사라진 등대의 비밀
+export const LIGHTHOUSE_QUEST_DATA = {
+  id: 'lighthouse_secret',
+  category: 'main',
+  title: '사라진 등대의 비밀',
+  icon: '🏛️',
+  steps: [
+    { id: 'explore_lighthouse', label: '등대 주변 탐색' },
+    { id: 'find_clues', label: '오래된 단서 발견' },
+    { id: 'inspect_device', label: '등대 장치 조사' },
+    { id: 'solve_puzzle', label: '퍼즐 해결' },
+    { id: 'obtain_log', label: '숨겨진 기록 획득' }
+  ],
+  rewards: [
+    {
+      itemId: 'old_voyage_log',
+      name: '오래된 항해 기록',
+      icon: '📜',
+      count: 1,
+      description: '오래전 이 섬에서 사라진 사람들의 이름이 기록되어 있다.'
+    }
+  ]
+};
+
 // 추후 NPC별/다단계 퀘스트 등록을 위한 퀘스트 레지스트리
 export const QUEST_REGISTRY = {
-  [QUEST_DATA.id]: QUEST_DATA
+  [QUEST_DATA.id]: QUEST_DATA,
+  [LIGHTHOUSE_QUEST_DATA.id]: LIGHTHOUSE_QUEST_DATA
 };
 
 // 대화 선택지 → 퀘스트 연동용 훅 ID 상수

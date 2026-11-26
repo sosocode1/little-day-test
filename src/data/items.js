@@ -255,6 +255,22 @@ export const ITEMS = {
     source: '밤의 탐험 및 주민 대화 (추후 업데이트)'
   },
 
+  // 첫 번째 환경 퍼즐(오래된 등대의 비밀) 완료 보상 단서 아이템
+  old_voyage_log: {
+    id: 'old_voyage_log',
+    name: '오래된 항해 기록',
+    type: ItemType.COLLECTIBLE,
+    categoryName: '단서 기록',
+    icon: '📜',
+    imageType: 'old_voyage_log',
+    stackable: false,
+    questId: 'lighthouse_secret',
+    deliverable: true,
+    usableFor: ['quest', 'story'],
+    description: '오래전 이 섬에서 사라진 사람들의 이름이 기록되어 있다.',
+    source: '사라진 등대의 비밀 퍼즐 완료 보상'
+  },
+
   // 속삭이는 숲 탐험 전용 수집 아이템 2종
   forest_dew_mushroom: {
     id: 'forest_dew_mushroom',

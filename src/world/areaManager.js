@@ -103,6 +103,10 @@ export function createAreaManager({
       instance = createForest(timeSystem, questSystem, inventorySystem);
     } else if (areaId === 'moonlight_island') {
       instance = createMoonlightIsland(timeSystem);
+      const { lighthousePuzzleSystem } = getSystems();
+      if (lighthousePuzzleSystem && typeof instance.syncPuzzleState === 'function') {
+        instance.syncPuzzleState(lighthousePuzzleSystem.getState());
+      }
     } else if (areaId === 'old_mansion') {
       instance = createOldMansion(timeSystem);
     } else if (areaId === 'cottage') {
@@ -135,6 +139,9 @@ export function createAreaManager({
     },
     getCurrentArea() {
       return areaInstances.get(currentAreaId);
+    },
+    getArea(areaId) {
+      return areaInstances.get(areaId) || null;
     },
     getCottage() {
       return cottage;
@@ -230,6 +237,14 @@ export function createAreaManager({
         if (targetAreaId === 'forest' && typeof newArea.setSystems === 'function') {
           const { inventorySystem, questSystem } = getSystems();
           newArea.setSystems(inventorySystem, questSystem);
+        }
+
+        // 달빛 섬인 경우 등대 퍼즐 시각 상태 동기화
+        if (targetAreaId === 'moonlight_island' && typeof newArea.syncPuzzleState === 'function') {
+          const { lighthousePuzzleSystem } = getSystems();
+          if (lighthousePuzzleSystem) {
+            newArea.syncPuzzleState(lighthousePuzzleSystem.getState());
+          }
         }
 
         currentAreaId = targetAreaId;

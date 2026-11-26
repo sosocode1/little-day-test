@@ -1,4 +1,4 @@
-import { QuestState, QUEST_DATA, QUEST_REGISTRY, DIALOGUE_QUEST_HOOKS } from '../data/quest.js';
+import { QuestState, QUEST_DATA, LIGHTHOUSE_QUEST_DATA, QUEST_REGISTRY, DIALOGUE_QUEST_HOOKS } from '../data/quest.js';
 import { createQuestUI } from '../ui/questUI.js';
 
 export function createQuestSystem(inventorySystem = null) {
@@ -11,11 +11,39 @@ export function createQuestSystem(inventorySystem = null) {
   const targetCount = QUEST_DATA.targetCount;
   const listeners = new Set();
 
+  // 메인 퀘스트('사라진 등대의 비밀') 다단계 진행 상태
+  let mainQuests = {
+    [LIGHTHOUSE_QUEST_DATA.id]: {
+      id: LIGHTHOUSE_QUEST_DATA.id,
+      title: LIGHTHOUSE_QUEST_DATA.title,
+      active: false,
+      completed: false,
+      completedSteps: [],
+      discoveredClueCount: 0,
+      totalClues: 4
+    }
+  };
+
   // NPC 대화 완료 상태, 밤 전용 단서 기록 및 추후 퀘스트 확장용 훅 레지스트리
   let completedDialogues = new Set();
   let discoveredClues = new Set();
   let triggeredQuestHooks = new Set();
   const questHookHandlers = new Map();
+
+  function getLighthouseQuestSnapshot() {
+    const q = mainQuests[LIGHTHOUSE_QUEST_DATA.id];
+    return {
+      ...q,
+      steps: LIGHTHOUSE_QUEST_DATA.steps,
+      completedSteps: [...q.completedSteps]
+    };
+  }
+
+  function renderMainQuestUI() {
+    if (ui && typeof ui.updateMainQuest === 'function') {
+      ui.updateMainQuest(getLighthouseQuestSnapshot());
+    }
+  }
 
   function notify() {
     for (const cb of listeners) {
@@ -28,7 +56,10 @@ export function createQuestSystem(inventorySystem = null) {
         deliveredAt,
         completedDialogues: Array.from(completedDialogues),
         discoveredClues: Array.from(discoveredClues),
-        triggeredQuestHooks: Array.from(triggeredQuestHooks)
+        triggeredQuestHooks: Array.from(triggeredQuestHooks),
+        mainQuests: {
+          [LIGHTHOUSE_QUEST_DATA.id]: getLighthouseQuestSnapshot()
+        }
       });
     }
   }
@@ -272,6 +303,88 @@ export function createQuestSystem(inventorySystem = null) {
     getDiscoveredClues() {
       return Array.from(discoveredClues);
     },
+    recordClue(clueId, title = null) {
+      if (!clueId) return false;
+      if (discoveredClues.has(clueId)) return false;
+      discoveredClues.add(clueId);
+      notify();
+      return true;
+    },
+    // --- 메인 퀘스트('사라진 등대의 비밀') 관리 API ---
+    startLighthouseQuest(showNotice = true) {
+      const q = mainQuests[LIGHTHOUSE_QUEST_DATA.id];
+      if (q.active) return false;
+      q.active = true;
+      renderMainQuestUI();
+      if (showNotice) {
+        ui.showToast('새 메인 퀘스트: 사라진 등대의 비밀 🏛️', '🏛️', 3000);
+      }
+      notify();
+      return true;
+    },
+    getLighthouseQuestState() {
+      return getLighthouseQuestSnapshot();
+    },
+    syncLighthouseQuest(progress = {}) {
+      const q = mainQuests[LIGHTHOUSE_QUEST_DATA.id];
+      const wasActive = q.active;
+      const wasCompleted = q.completed;
+      const prevStepsKey = q.completedSteps.join(',');
+      const prevClueCount = q.discoveredClueCount;
+
+      if (progress.active) q.active = true;
+
+      const stepSet = new Set(q.completedSteps);
+      if (progress.explored) stepSet.add('explore_lighthouse');
+      if (progress.cluesFound) {
+        stepSet.add('explore_lighthouse');
+        stepSet.add('find_clues');
+      }
+      if (progress.deviceInspected) {
+        stepSet.add('explore_lighthouse');
+        stepSet.add('inspect_device');
+      }
+      if (progress.puzzleSolved) {
+        stepSet.add('explore_lighthouse');
+        stepSet.add('find_clues');
+        stepSet.add('inspect_device');
+        stepSet.add('solve_puzzle');
+      }
+      if (progress.rewardClaimed) {
+        stepSet.add('explore_lighthouse');
+        stepSet.add('find_clues');
+        stepSet.add('inspect_device');
+        stepSet.add('solve_puzzle');
+        stepSet.add('obtain_log');
+        q.completed = true;
+      }
+
+      // 정의된 순서대로 정렬
+      q.completedSteps = LIGHTHOUSE_QUEST_DATA.steps
+        .map((s) => s.id)
+        .filter((id) => stepSet.has(id));
+
+      if (typeof progress.discoveredClueCount === 'number') {
+        q.discoveredClueCount = progress.discoveredClueCount;
+      }
+      if (typeof progress.totalClues === 'number') {
+        q.totalClues = progress.totalClues;
+      }
+
+      const changed =
+        wasActive !== q.active ||
+        wasCompleted !== q.completed ||
+        prevStepsKey !== q.completedSteps.join(',') ||
+        prevClueCount !== q.discoveredClueCount;
+
+      if (q.active || changed) {
+        renderMainQuestUI();
+      }
+      if (changed) {
+        notify();
+      }
+      return changed;
+    },
     getTriggeredQuestHooks() {
       return Array.from(triggeredQuestHooks);
     },
@@ -337,6 +450,7 @@ export function createQuestSystem(inventorySystem = null) {
       return () => listeners.delete(callback);
     },
     getStateData() {
+      const lq = mainQuests[LIGHTHOUSE_QUEST_DATA.id];
       return {
         id: QUEST_DATA.id,
         state,
@@ -346,7 +460,17 @@ export function createQuestSystem(inventorySystem = null) {
         deliveredAt,
         completedDialogues: Array.from(completedDialogues),
         discoveredClues: Array.from(discoveredClues),
-        triggeredQuestHooks: Array.from(triggeredQuestHooks)
+        triggeredQuestHooks: Array.from(triggeredQuestHooks),
+        mainQuests: {
+          [LIGHTHOUSE_QUEST_DATA.id]: {
+            id: lq.id,
+            active: Boolean(lq.active),
+            completed: Boolean(lq.completed),
+            completedSteps: [...lq.completedSteps],
+            discoveredClueCount: lq.discoveredClueCount || 0,
+            totalClues: lq.totalClues || 4
+          }
+        }
       };
     },
     restore(savedData) {
@@ -397,6 +521,17 @@ export function createQuestSystem(inventorySystem = null) {
       }
       if (Array.isArray(savedData.triggeredQuestHooks)) {
         triggeredQuestHooks = new Set(savedData.triggeredQuestHooks);
+      }
+
+      if (savedData.mainQuests && savedData.mainQuests[LIGHTHOUSE_QUEST_DATA.id]) {
+        const savedLq = savedData.mainQuests[LIGHTHOUSE_QUEST_DATA.id];
+        const lq = mainQuests[LIGHTHOUSE_QUEST_DATA.id];
+        lq.active = Boolean(savedLq.active);
+        lq.completed = Boolean(savedLq.completed);
+        lq.completedSteps = Array.isArray(savedLq.completedSteps) ? [...savedLq.completedSteps] : [];
+        lq.discoveredClueCount = Math.max(0, Number(savedLq.discoveredClueCount) || 0);
+        lq.totalClues = Math.max(1, Number(savedLq.totalClues) || 4);
+        renderMainQuestUI();
       }
 
       notify();

@@ -21,6 +21,10 @@ import { createLoadingScreen } from './ui/loadingScreen.js';
 import { createAreaManager } from './world/areaManager.js';
 import { createWorldMapUI } from './ui/worldMapUI.js';
 import { createSaveSystem } from './systems/saveSystem.js';
+import { createLighthousePuzzleSystem } from './systems/lighthousePuzzle.js';
+import { createClueUI } from './ui/clueUI.js';
+import { createLighthousePuzzleUI } from './ui/lighthousePuzzleUI.js';
+import { DIALOGUE_QUEST_HOOKS } from './data/quest.js';
 
 // 게임 내부 시간 시스템 초기화 (현실 시간보다 정확히 1시간 느린 실시간 1:1 진행)
 const timeSystem = createTimeSystem();
@@ -52,6 +56,7 @@ const loadingScreen = createLoadingScreen();
 // 시스템 참조 래퍼 (지연 바인딩용)
 let inventorySystem = null;
 let questSystem = null;
+let lighthousePuzzleSystem = null;
 
 // 독립 3D 지역 관리자 (마을, 속삭이는 숲, 달빛 섬, 오래된 저택)
 const areaManager = createAreaManager({
@@ -60,7 +65,7 @@ const areaManager = createAreaManager({
   player,
   followCamera,
   loadingScreen,
-  getSystems: () => ({ inventorySystem, questSystem })
+  getSystems: () => ({ inventorySystem, questSystem, lighthousePuzzleSystem })
 });
 
 // 공간 전환 관리자 (마을 <-> 별장 실내 및 구역 이동)
@@ -76,6 +81,25 @@ const welcomeGuideUI = createWelcomeGuideUI();
 const flowerManager = createFlowerManager(scene);
 const deliveryEffect = createDeliveryEffectManager(scene);
 questSystem = createQuestSystem(inventorySystem);
+
+// 첫 번째 환경 탐험 퍼즐 시스템: 오래된 등대의 비밀 (단서 UI + 퍼즐 UI)
+lighthousePuzzleSystem = createLighthousePuzzleSystem({
+  questSystem,
+  inventorySystem
+});
+const clueUI = createClueUI();
+const lighthousePuzzleUI = createLighthousePuzzleUI(lighthousePuzzleSystem);
+
+// 기존 NPC 등대 관련 대화 훅과 메인 퀘스트('사라진 등대의 비밀') & 달빛 섬 해금 연동
+const activateLighthouseLead = () => {
+  if (!areaManager.isUnlocked('moonlight_island')) {
+    areaManager.unlockArea('moonlight_island');
+    questSystem.ui.showToast('달빛 섬이 월드맵(M)에 해금되었습니다! 하얀 등대를 탐험해 보세요 🏝️✨', '🏝️', 3400);
+  }
+  questSystem.startLighthouseQuest(true);
+};
+questSystem.registerQuestHook(DIALOGUE_QUEST_HOOKS.HINT_LIGHTHOUSE_DAY, activateLighthouseLead);
+questSystem.registerQuestHook(DIALOGUE_QUEST_HOOKS.DISCOVER_LIGHTHOUSE_CLUE, activateLighthouseLead);
 
 // 월드맵 UI 생성 (단축키 M 및 우측 상단 플로팅 버튼)
 const worldMapUI = createWorldMapUI(areaManager, questSystem, inventorySystem);
@@ -93,7 +117,8 @@ const saveSystem = createSaveSystem({
   timeSystem,
   moonflowerEvent,
   flowerManager,
-  weatherSystem
+  weatherSystem,
+  lighthousePuzzleSystem
 });
 
 // 외형 스타일링 변경 시 자동 저장
@@ -102,10 +127,14 @@ vanityUI.onChange(() => saveSystem.save());
 // 주기적 자동 저장 (25초 간격)
 setInterval(() => saveSystem.save(), 25000);
 
-// 세이브 데이터 복원 (외형, 장착, 퀘스트, 위치/지역)
+// 세이브 데이터 복원 (외형, 장착, 퀘스트, 등대 퍼즐, 위치/지역)
 saveSystem.restore().then(() => {
   if (flowerManager && questSystem && typeof flowerManager.syncCollected === 'function') {
     flowerManager.syncCollected(questSystem.getCollectedFlowerIds());
+  }
+  const islandArea = areaManager.getArea ? areaManager.getArea('moonlight_island') : null;
+  if (islandArea && typeof islandArea.syncPuzzleState === 'function') {
+    islandArea.syncPuzzleState(lighthousePuzzleSystem.getState());
   }
   if (followCamera && typeof followCamera.snap === 'function') {
     followCamera.snap(player.position);
@@ -114,6 +143,9 @@ saveSystem.restore().then(() => {
 
 // 공간 이동 알림 (별장 진입 시 '우리 집에 돌아왔어요!' 토스트) 및 자동 저장
 spaceManager.onSpaceChange((space) => {
+  if (space === 'forest' && !areaManager.isUnlocked('moonlight_island')) {
+    areaManager.unlockArea('moonlight_island');
+  }
   saveSystem.save();
   if (space === 'cottage') {
     questSystem.ui.showToast('우리 집에 돌아왔어요! 편안하게 쉬어가세요 🏡✨', '🏡', 3000);
@@ -122,7 +154,7 @@ spaceManager.onSpaceChange((space) => {
   } else if (space === 'forest') {
     questSystem.ui.showToast('신비로운 속삭이는 숲에 들어왔어요! 🌲✨', '🌲', 3200);
   } else if (space === 'moonlight_island') {
-    questSystem.ui.showToast('달빛 섬에 도착했습니다! 은빛 모래사장을 거닐어보세요 🏝️✨', '🏝️', 3200);
+    questSystem.ui.showToast('달빛 섬에 도착했습니다! 북쪽 하얀 등대 주변을 탐험해 보세요 🏝️✨', '🏝️', 3200);
   } else if (space === 'old_mansion') {
     questSystem.ui.showToast('오래된 저택 정원에 들어왔습니다! 🏰✨', '🏰', 3200);
   }
@@ -146,7 +178,10 @@ const interaction = createInteractionSystem(
   areaManager,
   worldMapUI,
   timeSystem,
-  saveSystem
+  saveSystem,
+  lighthousePuzzleSystem,
+  clueUI,
+  lighthousePuzzleUI
 );
 interaction.setCamera(camera);
 interaction.setDeliveryEffect(deliveryEffect);

@@ -15,7 +15,8 @@ export function createSaveSystem({
   timeSystem,
   moonflowerEvent,
   flowerManager,
-  weatherSystem = null
+  weatherSystem = null,
+  lighthousePuzzleSystem = null
 }) {
   let saveTimer = null;
 
@@ -149,6 +150,9 @@ export function createSaveSystem({
       time: timeData,
       weather: weatherSystem && typeof weatherSystem.exportData === 'function'
         ? weatherSystem.exportData()
+        : null,
+      lighthousePuzzle: lighthousePuzzleSystem && typeof lighthousePuzzleSystem.getStateData === 'function'
+        ? lighthousePuzzleSystem.getStateData()
         : null
     };
   }
@@ -262,6 +266,11 @@ export function createSaveSystem({
         }
       }
 
+      // 3-B. 오래된 등대 퍼즐 및 단서 상태 복원 (지역 이동 전 복원하여 3D 시각 상태 즉시 동기화)
+      if (data.lighthousePuzzle && lighthousePuzzleSystem && typeof lighthousePuzzleSystem.restore === 'function') {
+        lighthousePuzzleSystem.restore(data.lighthousePuzzle);
+      }
+
       // 4. 지역 해금 상태 복원
       if (data.world?.unlockedAreas && areaManager && typeof areaManager.restoreUnlockedAreas === 'function') {
         areaManager.restoreUnlockedAreas(data.world.unlockedAreas);
@@ -331,6 +340,15 @@ export function createSaveSystem({
   }
   if (weatherSystem && typeof weatherSystem.onAutoCycleChange === 'function') {
     weatherSystem.onAutoCycleChange(() => save(false));
+  }
+
+  // 등대 퍼즐/단서 상태 변경 시 자동 저장 구독
+  if (lighthousePuzzleSystem && typeof lighthousePuzzleSystem.subscribe === 'function') {
+    lighthousePuzzleSystem.subscribe((_, eventType) => {
+      if (eventType !== 'restored') {
+        save(true);
+      }
+    });
   }
 
   return {
