@@ -1,210 +1,681 @@
-// 퀘스트 진행 상태 패널 및 수집/보상 알림 UI
+// 퀘스트 저널 UI, 우측 상단 요약 HUD 및 수집/보상 알림 UI
+function formatCompletedDate(timestamp) {
+  if (!timestamp) return '완료됨';
+  try {
+    const d = new Date(timestamp);
+    if (Number.isNaN(d.getTime())) return '완료됨';
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}.${m}.${day} 완료`;
+  } catch (e) {
+    return '완료됨';
+  }
+}
+
 export function createQuestUI() {
   // 기존 잔존 요소 정리 (HMR 등 중복 방지)
   const existingStyle = document.getElementById('little-day-quest-style');
   if (existingStyle) existingStyle.remove();
-  document.querySelectorAll('.quest-stack, .quest-panel, .collect-toast, .reward-modal-backdrop, .delivery-modal-backdrop').forEach((el) => el.remove());
+  document
+    .querySelectorAll(
+      '.quest-hud-container, .quest-journal-backdrop, .quest-stack, .quest-panel, .collect-toast, .reward-modal-backdrop, .delivery-modal-backdrop'
+    )
+    .forEach((el) => el.remove());
 
   // 스타일 주입
   const style = document.createElement('style');
   style.id = 'little-day-quest-style';
   style.textContent = `
-    /* 우측 상단 다중 퀘스트 스택 컨테이너 (월드맵 버튼 아래 배치) */
-    .quest-stack {
+    /* 우측 상단 퀘스트 HUD (월드맵 버튼 아래 단일 버튼 + 추적 요약 패널 1개) */
+    .quest-hud-container {
       position: fixed;
-      top: 76px;
+      top: 74px;
       right: 24px;
-      width: 260px;
+      z-index: 120;
       display: flex;
       flex-direction: column;
-      gap: 10px;
-      z-index: 100;
+      align-items: flex-end;
+      gap: 8px;
       pointer-events: none;
-    }
-    /* 우측 상단 퀘스트 패널 */
-    .quest-panel {
-      width: 100%;
-      box-sizing: border-box;
-      background: rgba(255, 253, 250, 0.94);
-      backdrop-filter: blur(10px);
-      border-radius: 20px;
-      padding: 15px 17px;
-      box-shadow: 0 10px 30px rgba(180, 130, 150, 0.22);
-      border: 2px solid #ffd6e2;
-      font-family: "Pretendard", "Segoe UI", sans-serif;
-      color: #4a343e;
+      font-family: "Pretendard", "Segoe UI", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif;
       user-select: none;
-      display: none;
-      opacity: 0;
-      transform: translateX(20px);
-      transition: opacity 0.3s ease, transform 0.3s ease;
-      pointer-events: none;
     }
-    .quest-panel.visible {
-      display: block;
-      opacity: 1;
-      transform: translateX(0);
+    .quest-hud-container.journal-open {
+      z-index: 390;
+    }
+
+    /* '📜 퀘스트' 전용 버튼 */
+    .quest-journal-pill {
+      height: 40px;
+      padding: 0 14px 0 15px;
+      background: rgba(255, 253, 250, 0.95);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-radius: 999px;
+      border: 2px solid #ffd6e2;
+      box-shadow: 0 4px 14px rgba(180, 130, 150, 0.2);
+      color: #6a4050;
+      font-family: inherit;
+      font-size: 13.5px;
+      font-weight: 800;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease;
       pointer-events: auto;
     }
-    .quest-panel.main-quest-panel {
-      border-color: #d6ccfa;
-      box-shadow: 0 10px 28px rgba(125, 112, 178, 0.22);
+    .quest-journal-pill:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 18px rgba(180, 130, 150, 0.28);
+      border-color: #ffb8cc;
+      background: #ffffff;
     }
-    .quest-panel.main-quest-panel .quest-panel-header {
-      color: #543e8a;
-      border-bottom-color: #e4ddfb;
+    .quest-journal-pill:active {
+      transform: scale(0.97);
     }
-    .quest-panel.main-quest-panel .quest-badge {
-      background: #efe9ff;
-      color: #5d439c;
+    .quest-journal-pill.open-active {
+      border-color: #ff8fad;
+      background: #fff2f6;
+      color: #8c3d59;
     }
-    .quest-panel.main-quest-panel .quest-badge.complete {
-      background: #cfeedd;
-      color: #2b7a4b;
-    }
-    .quest-panel.main-quest-panel .quest-progress-bar-bg {
-      background: #eee9fa;
-    }
-    .quest-panel.main-quest-panel .quest-progress-bar-fill {
-      background: linear-gradient(90deg, #a7b8ff, #8e9df7);
-    }
-    .quest-steps-list {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      margin: 6px 0 8px;
-      padding: 0;
-      list-style: none;
-    }
-    .quest-step-item {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 11.8px;
-      font-weight: 700;
-      color: #9b8ca8;
-      line-height: 1.35;
-    }
-    .quest-step-item.done {
-      color: #3f8a62;
-      text-decoration: line-through;
-      opacity: 0.84;
-    }
-    .quest-step-item.active {
-      color: #4b3578;
+    .quest-hud-count {
+      min-width: 20px;
+      height: 20px;
+      padding: 0 6px;
+      border-radius: 999px;
+      background: #f4e6ec;
+      color: #9b6c7e;
+      font-size: 11px;
       font-weight: 900;
-    }
-    .quest-step-dot {
-      width: 15px;
-      height: 15px;
-      border-radius: 50%;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      font-size: 9.5px;
-      flex-shrink: 0;
-      background: #eee9f8;
-      color: #8d7ea8;
     }
-    .quest-step-item.done .quest-step-dot {
-      background: #d3f2e0;
-      color: #27784b;
-    }
-    .quest-step-item.active .quest-step-dot {
-      background: #92a2ff;
+    .quest-hud-count.has-active {
+      background: linear-gradient(135deg, #ff99b6, #ff769c);
       color: #ffffff;
+      box-shadow: 0 2px 8px rgba(240, 108, 145, 0.35);
     }
-    .quest-panel.pulse {
+
+    /* 현재 추적 중인 퀘스트 단일 요약 패널 */
+    .quest-tracker-card {
+      width: 226px;
+      box-sizing: border-box;
+      background: rgba(255, 253, 249, 0.94);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-radius: 18px;
+      padding: 11px 14px;
+      border: 2px solid #ffd8e4;
+      box-shadow: 0 8px 22px rgba(175, 125, 145, 0.2);
+      color: #523842;
+      text-align: left;
+      cursor: pointer;
+      display: none;
+      pointer-events: auto;
+      transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+    }
+    .quest-tracker-card.visible {
+      display: block;
+    }
+    .quest-tracker-card:hover {
+      transform: translateY(-1px);
+      border-color: #ffb8cc;
+      box-shadow: 0 10px 26px rgba(175, 125, 145, 0.28);
+    }
+    .quest-tracker-card.pulse {
       animation: questProgressPulse 0.42s cubic-bezier(0.22, 1, 0.36, 1);
     }
-    .quest-panel.completed-celebrate {
-      border-color: #8fd9ae;
-      box-shadow:
-        0 12px 32px rgba(80, 175, 120, 0.28),
-        0 0 0 3px rgba(175, 235, 200, 0.45);
-      animation: questProgressPulse 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+    .quest-tracker-title-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
     }
+    .quest-tracker-tag {
+      font-size: 10px;
+      font-weight: 900;
+      padding: 2px 6px;
+      border-radius: 999px;
+      background: #ffe6ef;
+      color: #a6496b;
+      flex-shrink: 0;
+    }
+    .quest-tracker-tag.main {
+      background: #fff0d9;
+      color: #9e5d20;
+    }
+    .quest-tracker-title {
+      font-size: 13px;
+      font-weight: 900;
+      color: #6b384b;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .quest-tracker-objective {
+      font-size: 12px;
+      font-weight: 700;
+      color: #7a5c67;
+      line-height: 1.4;
+      word-break: keep-all;
+    }
+
     @keyframes questProgressPulse {
       0% { transform: scale(1); }
-      45% { transform: scale(1.045); }
+      45% { transform: scale(1.035); }
       100% { transform: scale(1); }
     }
+
     @media (max-width: 1280px) {
-      .quest-stack {
-        width: 230px;
+      .quest-hud-container {
         right: 18px;
-        top: 74px;
+        top: 72px;
       }
-      .quest-panel {
-        padding: 13px 15px;
+      .quest-tracker-card {
+        width: 210px;
       }
     }
     @media (max-width: 768px) {
-      .quest-stack {
-        width: 205px;
+      .quest-hud-container {
         right: 12px;
-        top: 70px;
+        top: 68px;
       }
-      .quest-panel {
-        padding: 10px 12px;
+      .quest-journal-pill {
+        padding: 0 12px;
+        font-size: 12.5px;
+      }
+      .quest-tracker-card {
+        width: 190px;
+        padding: 9px 12px;
       }
     }
-    .quest-panel-header {
+
+    /* 화면 중앙 퀘스트 저널 모달 (동화책 크림·연핑크 감성) */
+    .quest-journal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(54, 36, 44, 0.38);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      box-sizing: border-box;
+      z-index: 380;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 0.24s ease, visibility 0.24s ease;
+      font-family: "Pretendard", "Segoe UI", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif;
+      user-select: none;
+    }
+    .quest-journal-backdrop.open {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+    }
+
+    .quest-journal-window {
+      width: min(92vw, 680px);
+      height: min(82vh, 560px);
+      max-height: 86vh;
+      background: linear-gradient(180deg, #fffdf9 0%, #fff7f9 100%);
+      border-radius: 28px;
+      border: 3.5px solid #ffd6e2;
+      box-shadow:
+        0 24px 56px rgba(145, 90, 115, 0.32),
+        inset 0 4px 10px rgba(255, 255, 255, 0.94),
+        inset 0 -5px 12px rgba(242, 200, 214, 0.32);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      color: #4f3540;
+      transform: scale(0.93) translateY(14px);
+      transition: transform 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .quest-journal-backdrop.open .quest-journal-window {
+      transform: scale(1) translateY(0);
+    }
+
+    .qj-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 22px 13px;
+      border-bottom: 2px dashed #ffe0ea;
+      background: rgba(255, 255, 255, 0.55);
+      flex-shrink: 0;
+    }
+    .qj-title-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .qj-title {
+      font-size: 18.5px;
+      font-weight: 900;
+      color: #6b3648;
+      letter-spacing: -0.3px;
+    }
+    .qj-summary-pill {
+      font-size: 11.5px;
+      font-weight: 800;
+      color: #9e536d;
+      background: #ffeaf1;
+      border: 1px solid #ffd0df;
+      padding: 3px 10px;
+      border-radius: 999px;
+    }
+    .qj-close-btn {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      border: 1.5px solid #ffd0de;
+      background: #fffafc;
+      color: #9c6a80;
+      font-size: 15px;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s ease;
+    }
+    .qj-close-btn:hover {
+      background: #ffeef4;
+      color: #cf3d6d;
+      transform: scale(1.06);
+    }
+
+    /* 상단 3개 탭 */
+    .qj-tabs {
+      display: flex;
+      gap: 8px;
+      padding: 12px 22px 10px;
+      flex-shrink: 0;
+    }
+    .qj-tab {
+      flex: 1;
+      height: 38px;
+      border-radius: 14px;
+      border: 2px solid #f6dce5;
+      background: #fff9fb;
+      color: #8c5e70;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.16s ease;
+    }
+    .qj-tab:hover {
+      border-color: #ffb8cc;
+      background: #ffffff;
+    }
+    .qj-tab.active {
+      background: linear-gradient(135deg, #ff96b4 0%, #ff789e 100%);
+      border-color: #ff8fad;
+      color: #ffffff;
+      box-shadow: 0 4px 12px rgba(240, 110, 148, 0.3);
+    }
+    .qj-tab-count {
+      min-width: 19px;
+      height: 19px;
+      padding: 0 5px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 900;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(160, 90, 115, 0.12);
+      color: #8c4d64;
+    }
+    .qj-tab.active .qj-tab-count {
+      background: rgba(255, 255, 255, 0.28);
+      color: #ffffff;
+    }
+
+    /* 2단 동화책 본문 */
+    .qj-body {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      gap: 14px;
+      padding: 4px 22px 14px;
+      overflow: hidden;
+    }
+
+    .qj-list-pane {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+    .qj-list-item {
+      width: 100%;
+      box-sizing: border-box;
+      text-align: left;
+      padding: 12px 13px;
+      border-radius: 18px;
+      border: 2px solid #f5dce5;
+      background: #ffffff;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.16s ease;
+      box-shadow: 0 3px 10px rgba(190, 145, 165, 0.1);
+    }
+    .qj-list-item:hover {
+      border-color: #ffb8cc;
+      transform: translateY(-1px);
+    }
+    .qj-list-item.selected {
+      border-color: #ff8fad;
+      background: #fff5f8;
+      box-shadow: 0 5px 14px rgba(240, 120, 155, 0.2);
+    }
+    .qj-list-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      margin-bottom: 5px;
+    }
+    .qj-list-title {
+      font-size: 13.5px;
+      font-weight: 900;
+      color: #5b3343;
+      line-height: 1.3;
+      word-break: keep-all;
+    }
+    .qj-list-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      font-size: 11.5px;
+      font-weight: 700;
+      color: #956d7c;
+    }
+    .qj-mini-badge {
+      font-size: 10.5px;
+      font-weight: 800;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: #ffe8f0;
+      color: #a34968;
+      flex-shrink: 0;
+    }
+    .qj-mini-badge.tracked {
+      background: #fff0d6;
+      color: #a35d18;
+      border: 1px solid #f4d29a;
+    }
+    .qj-mini-badge.done {
+      background: #d9f4e4;
+      color: #27784b;
+    }
+
+    /* 우측 상세 패널 */
+    .qj-detail-pane {
+      background: #ffffff;
+      border: 2px solid #f6dde6;
+      border-radius: 22px;
+      padding: 18px 18px 16px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: inset 0 2px 6px rgba(250, 232, 238, 0.45);
+    }
+    .qj-detail-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      padding-bottom: 10px;
+      border-bottom: 1.5px dashed #f7dce6;
+    }
+    .qj-detail-tags {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 5px;
+    }
+    .qj-detail-title {
+      font-size: 18px;
+      font-weight: 900;
+      color: #5c3142;
+      letter-spacing: -0.3px;
+    }
+    .qj-npc-row {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12.5px;
+      font-weight: 800;
+      color: #8c5568;
+      background: #fff6f9;
+      border: 1px solid #ffdbe6;
+      padding: 4px 11px;
+      border-radius: 999px;
+      align-self: flex-start;
+    }
+    .qj-desc {
+      font-size: 13.5px;
+      line-height: 1.6;
+      font-weight: 600;
+      color: #634952;
+      word-break: keep-all;
+      margin: 0;
+    }
+
+    .qj-section-label {
+      font-size: 12px;
+      font-weight: 900;
+      color: #9c5b72;
+      margin-bottom: 6px;
+    }
+    .qj-steps-box {
+      background: #fffaf9;
+      border: 1.5px solid #f7e2e8;
+      border-radius: 16px;
+      padding: 11px 13px;
+    }
+    .qj-steps-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .qj-step-row {
       display: flex;
       align-items: center;
       gap: 8px;
-      font-size: 14px;
-      font-weight: 800;
-      color: #8c435c;
-      margin-bottom: 8px;
-      padding-bottom: 6px;
-      border-bottom: 1.5px dashed #ffd6e2;
-    }
-    .quest-title-text {
-      flex: 1;
-    }
-    .quest-badge {
-      font-size: 11px;
-      padding: 2px 7px;
-      border-radius: 6px;
-      background: #ffe3ec;
-      color: #a04968;
-      font-weight: 700;
-    }
-    .quest-badge.complete {
-      background: #cfeedd;
-      color: #2b7a4b;
-    }
-    .quest-goal-text {
       font-size: 13px;
-      font-weight: 600;
-      color: #5c454e;
+      font-weight: 700;
+      color: #9a7d87;
       line-height: 1.4;
-      margin-bottom: 6px;
     }
-    .quest-progress-bar-bg {
-      width: 100%;
-      height: 8px;
-      background: #f5e4ea;
-      border-radius: 999px;
-      overflow: hidden;
-      margin-top: 6px;
+    .qj-step-row.done {
+      color: #368058;
+      text-decoration: line-through;
+      opacity: 0.85;
     }
-    .quest-progress-bar-fill {
-      height: 100%;
-      width: 0%;
-      background: linear-gradient(90deg, #ffb3c8, #ff8fad);
-      border-radius: 999px;
-      transition: width 0.35s ease;
+    .qj-step-row.active {
+      color: #5d3043;
+      font-weight: 900;
     }
-    .quest-progress-text {
+    .qj-step-dot {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      font-size: 10.5px;
+      font-weight: 900;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      background: #f3e4ea;
+      color: #9d7584;
+    }
+    .qj-step-row.done .qj-step-dot {
+      background: #d2f2e0;
+      color: #27784b;
+    }
+    .qj-step-row.active .qj-step-dot {
+      background: #ff8fad;
+      color: #ffffff;
+    }
+
+    .qj-progress-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .qj-progress-top {
       display: flex;
       justify-content: space-between;
-      align-items: center;
       font-size: 12px;
+      font-weight: 800;
+      color: #8c5c6e;
+    }
+    .qj-progress-bg {
+      width: 100%;
+      height: 9px;
+      border-radius: 999px;
+      background: #f7e6ec;
+      overflow: hidden;
+    }
+    .qj-progress-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #ffb0c7, #ff82a5);
+      transition: width 0.3s ease;
+    }
+    .qj-progress-fill.done {
+      background: linear-gradient(90deg, #8edbb0, #5ec48c);
+    }
+
+    .qj-rewards-box {
+      background: #fff8f2;
+      border: 1.5px dashed #f2d3be;
+      border-radius: 16px;
+      padding: 10px 13px;
+    }
+    .qj-rewards-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .qj-reward-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 11px;
+      border-radius: 999px;
+      background: #ffffff;
+      border: 1.5px solid #f4d8c6;
+      font-size: 12.5px;
+      font-weight: 800;
+      color: #6b4338;
+    }
+
+    .qj-detail-actions {
+      margin-top: auto;
+      padding-top: 8px;
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    .qj-track-btn {
+      padding: 8px 16px;
+      border-radius: 999px;
+      font-family: inherit;
+      font-size: 12.5px;
+      font-weight: 900;
+      cursor: pointer;
+      flex-shrink: 0;
+      white-space: nowrap;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+    }
+    .qj-track-btn.primary {
+      background: linear-gradient(135deg, #ff8fad 0%, #ff6e94 100%);
+      border: 2px solid #ffccd9;
+      color: #ffffff;
+      box-shadow: 0 5px 14px rgba(240, 110, 148, 0.34);
+    }
+    .qj-track-btn.primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 7px 18px rgba(240, 110, 148, 0.44);
+    }
+    .qj-track-btn.untrack {
+      background: #f9edf1;
+      border: 2px solid #f0cfd9;
+      color: #8c4d63;
+    }
+    .qj-track-btn.untrack:hover {
+      background: #f3dfe7;
+    }
+
+    .qj-empty-state {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 28px 16px;
+      color: #9e7785;
+      font-size: 13.5px;
       font-weight: 700;
-      color: #8c6071;
-      margin-top: 5px;
+      line-height: 1.6;
+      word-break: keep-all;
+    }
+
+    .qj-footer {
+      text-align: center;
+      font-size: 11.5px;
+      font-weight: 700;
+      color: #a98190;
+      padding: 9px 18px 13px;
+      border-top: 1.5px dashed #ffe1ec;
+      background: rgba(255, 255, 255, 0.5);
+      flex-shrink: 0;
+    }
+
+    @media (max-width: 640px) {
+      .quest-journal-window {
+        height: min(86vh, 580px);
+      }
+      .qj-tabs {
+        padding: 10px 14px 8px;
+        gap: 6px;
+      }
+      .qj-tab {
+        font-size: 12px;
+        height: 36px;
+      }
+      .qj-body {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr;
+        padding: 4px 14px 12px;
+      }
+      .qj-list-pane {
+        max-height: 138px;
+      }
     }
 
     /* 수집 토스트 알림 (화면 상단 중앙) */
@@ -614,64 +1085,379 @@ export function createQuestUI() {
   `;
   document.head.appendChild(style);
 
-  // 1. 퀘스트 스택 및 패널 DOM 생성 (메인 퀘스트 + 기존 폭시 퀘스트 동시 지원)
-  const stackEl = document.createElement('div');
-  stackEl.className = 'quest-stack';
-  document.body.appendChild(stackEl);
+  // 1. 우측 상단 퀘스트 HUD (전용 '📜 퀘스트' 버튼 + 단일 추적 요약 패널)
+  const hudContainer = document.createElement('div');
+  hudContainer.className = 'quest-hud-container';
+  hudContainer.innerHTML = `
+    <button type="button" class="quest-journal-pill" aria-label="퀘스트 저널 열기">
+      <span>📜</span>
+      <span>퀘스트</span>
+      <span class="quest-hud-count">0</span>
+    </button>
+    <button type="button" class="quest-tracker-card" aria-label="추적 중인 퀘스트 보기">
+      <div class="quest-tracker-title-row">
+        <span class="quest-tracker-tag">메인</span>
+        <span class="quest-tracker-title"></span>
+      </div>
+      <div class="quest-tracker-objective"></div>
+    </button>
+  `;
+  document.body.appendChild(hudContainer);
 
-  // (A) 메인 퀘스트 패널: 사라진 등대의 비밀 (5단계 실시간 갱신)
-  const mainPanelEl = document.createElement('div');
-  mainPanelEl.className = 'quest-panel main-quest-panel';
-  mainPanelEl.innerHTML = `
-    <div class="quest-panel-header">
-      <span>🏛️</span>
-      <span class="quest-title-text main-quest-title">사라진 등대의 비밀</span>
-      <span class="quest-badge main-quest-badge">진행 중</span>
-    </div>
-    <ul class="quest-steps-list"></ul>
-    <div class="quest-progress-bar-bg">
-      <div class="quest-progress-bar-fill main-quest-fill"></div>
-    </div>
-    <div class="quest-progress-text">
-      <span class="main-quest-hint">달빛 섬 등대 주변을 탐색해 보세요</span>
-      <span class="main-quest-count">0/5</span>
+  const journalOpenBtn = hudContainer.querySelector('.quest-journal-pill');
+  const hudCountEl = hudContainer.querySelector('.quest-hud-count');
+  const trackerCardEl = hudContainer.querySelector('.quest-tracker-card');
+  const trackerTagEl = hudContainer.querySelector('.quest-tracker-tag');
+  const trackerTitleEl = hudContainer.querySelector('.quest-tracker-title');
+  const trackerObjectiveEl = hudContainer.querySelector('.quest-tracker-objective');
+
+  // 1-B. 화면 중앙 퀘스트 저널 모달 DOM
+  const journalBackdrop = document.createElement('div');
+  journalBackdrop.className = 'quest-journal-backdrop';
+  journalBackdrop.innerHTML = `
+    <div class="quest-journal-window" role="dialog" aria-modal="true" aria-label="퀘스트 저널">
+      <div class="qj-header">
+        <div class="qj-title-group">
+          <span class="qj-title">📜 퀘스트 저널</span>
+          <span class="qj-summary-pill">진행 중 0개</span>
+        </div>
+        <button type="button" class="qj-close-btn" title="닫기 (Esc)" aria-label="퀘스트 저널 닫기">✕</button>
+      </div>
+      <div class="qj-tabs" role="tablist">
+        <button type="button" class="qj-tab active" data-tab="main" role="tab" aria-selected="true">
+          <span>메인 퀘스트</span>
+          <span class="qj-tab-count" data-count="main">0</span>
+        </button>
+        <button type="button" class="qj-tab" data-tab="sub" role="tab" aria-selected="false">
+          <span>서브 퀘스트</span>
+          <span class="qj-tab-count" data-count="sub">0</span>
+        </button>
+        <button type="button" class="qj-tab" data-tab="completed" role="tab" aria-selected="false">
+          <span>완료한 퀘스트</span>
+          <span class="qj-tab-count" data-count="completed">0</span>
+        </button>
+      </div>
+      <div class="qj-body">
+        <div class="qj-list-pane"></div>
+        <div class="qj-detail-pane"></div>
+      </div>
+      <div class="qj-footer">
+        퀘스트 버튼 다시 클릭 또는 [ESC] 키로 저널을 닫을 수 있습니다
+      </div>
     </div>
   `;
-  stackEl.appendChild(mainPanelEl);
+  document.body.appendChild(journalBackdrop);
 
-  const mainTitleEl = mainPanelEl.querySelector('.main-quest-title');
-  const mainBadgeEl = mainPanelEl.querySelector('.main-quest-badge');
-  const mainStepsEl = mainPanelEl.querySelector('.quest-steps-list');
-  const mainFillEl = mainPanelEl.querySelector('.main-quest-fill');
-  const mainHintEl = mainPanelEl.querySelector('.main-quest-hint');
-  const mainCountEl = mainPanelEl.querySelector('.main-quest-count');
+  const qjSummaryEl = journalBackdrop.querySelector('.qj-summary-pill');
+  const qjCloseBtn = journalBackdrop.querySelector('.qj-close-btn');
+  const qjTabBtns = journalBackdrop.querySelectorAll('.qj-tab');
+  const qjListPane = journalBackdrop.querySelector('.qj-list-pane');
+  const qjDetailPane = journalBackdrop.querySelector('.qj-detail-pane');
 
-  // (B) 기존 퀘스트 패널: 폭시의 작은 부탁
-  const panelEl = document.createElement('div');
-  panelEl.className = 'quest-panel';
-  panelEl.innerHTML = `
-    <div class="quest-panel-header">
-      <span>🌸</span>
-      <span class="quest-title-text">폭시의 작은 부탁</span>
-      <span class="quest-badge">진행 중</span>
-    </div>
-    <div class="quest-goal-text">분홍색 꽃 모으기</div>
-    <div class="quest-progress-bar-bg">
-      <div class="quest-progress-bar-fill"></div>
-    </div>
-    <div class="quest-progress-text">
-      <span class="quest-status-hint">마을 주변을 찾아보세요</span>
-      <span class="quest-count">0/3</span>
-    </div>
-  `;
-  stackEl.appendChild(panelEl);
+  let journalOpen = false;
+  let activeTab = 'main';
+  let selectedQuestId = null;
+  let lastJournalData = {
+    main: [],
+    sub: [],
+    completed: [],
+    activeCount: 0,
+    trackedQuestId: null,
+    trackedQuest: null
+  };
+  let lastTrackerSignature = '';
+  let onToggleTrackHandler = null;
+  let canOpenPredicate = null;
 
-  const titleEl = panelEl.querySelector('.quest-title-text');
-  const badgeEl = panelEl.querySelector('.quest-badge');
-  const goalEl = panelEl.querySelector('.quest-goal-text');
-  const fillEl = panelEl.querySelector('.quest-progress-bar-fill');
-  const hintEl = panelEl.querySelector('.quest-status-hint');
-  const countEl = panelEl.querySelector('.quest-count');
+  function renderJournalModal() {
+    const data = lastJournalData;
+    const completedCount = data.completed.length;
+    qjSummaryEl.textContent = `진행 중 ${data.activeCount}개 · 완료 ${completedCount}개`;
+
+    const counts = {
+      main: data.main.length,
+      sub: data.sub.length,
+      completed: data.completed.length
+    };
+
+    qjTabBtns.forEach((btn) => {
+      const tabKey = btn.getAttribute('data-tab');
+      const isSelected = tabKey === activeTab;
+      btn.classList.toggle('active', isSelected);
+      btn.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+      const countSpan = btn.querySelector('.qj-tab-count');
+      if (countSpan) countSpan.textContent = String(counts[tabKey] || 0);
+    });
+
+    const list = data[activeTab] || [];
+    if (list.length === 0) {
+      selectedQuestId = null;
+      const emptyMessages = {
+        main: '현재 진행 중인 메인 퀘스트가 없습니다.\n마을 주민들과 대화하거나 달빛 섬을 탐험해 보세요.',
+        sub: '현재 진행 중인 서브 퀘스트가 없습니다.\n마을의 동물 친구들에게 말을 걸어 부탁을 들어보세요.',
+        completed: '아직 완료한 퀘스트가 없습니다.\n진행 중인 퀘스트를 완료하면 이곳에 기록됩니다.'
+      };
+      qjListPane.innerHTML = `<div class="qj-empty-state">목록이 비어 있어요</div>`;
+      qjDetailPane.innerHTML = `<div class="qj-empty-state">${emptyMessages[activeTab].replace(/\n/g, '<br />')}</div>`;
+      return;
+    }
+
+    if (!selectedQuestId || !list.some((q) => q.id === selectedQuestId)) {
+      selectedQuestId = list[0].id;
+    }
+
+    qjListPane.innerHTML = list
+      .map((q) => {
+        const isSel = q.id === selectedQuestId;
+        const badgeClass = q.status === 'completed' ? 'done' : q.isTracked ? 'tracked' : '';
+        const badgeLabel = q.status === 'completed' ? '완료됨' : q.isTracked ? '추적 중' : q.statusLabel;
+        const subMeta =
+          activeTab === 'completed'
+            ? formatCompletedDate(q.completedAt)
+            : q.category === 'sub' && q.giverNpcName
+              ? q.giverNpcName.split(' ')[0]
+              : q.progressText;
+        return `
+          <button type="button" class="qj-list-item ${isSel ? 'selected' : ''}" data-quest-id="${q.id}">
+            <div class="qj-list-top">
+              <span class="qj-list-title">${q.title}</span>
+              <span class="qj-mini-badge ${badgeClass}">${badgeLabel}</span>
+            </div>
+            <div class="qj-list-meta">
+              <span>${subMeta}</span>
+              <span>${q.progressText}</span>
+            </div>
+          </button>
+        `;
+      })
+      .join('');
+
+    qjListPane.querySelectorAll('.qj-list-item').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        selectedQuestId = btn.getAttribute('data-quest-id');
+        renderJournalModal();
+      });
+    });
+
+    const q = list.find((item) => item.id === selectedQuestId) || list[0];
+    const isCompleted = q.status === 'completed';
+
+    const stepsHtml = (q.steps || [])
+      .map((step, idx) => {
+        const cls = step.done ? 'done' : step.active ? 'active' : '';
+        const dot = step.done ? '✓' : String(idx + 1);
+        const extra = step.extraText ? ` ${step.extraText}` : '';
+        return `
+          <li class="qj-step-row ${cls}">
+            <span class="qj-step-dot">${dot}</span>
+            <span>${step.label}${extra}</span>
+          </li>
+        `;
+      })
+      .join('');
+
+    const rewardsHtml = (q.rewards || [])
+      .map(
+        (r) => `
+        <span class="qj-reward-chip">
+          <span>${r.icon || '🎁'}</span>
+          <span>${r.name} × ${r.count || 1}</span>
+        </span>
+      `
+      )
+      .join('');
+
+    const statusBadgeClass = isCompleted ? 'done' : q.isTracked ? 'tracked' : '';
+    const statusBadgeText = isCompleted ? formatCompletedDate(q.completedAt) : q.isTracked ? '추적 중' : q.statusLabel;
+
+    qjDetailPane.innerHTML = `
+      <div class="qj-detail-header">
+        <div>
+          <div class="qj-detail-tags">
+            <span class="qj-mini-badge">${q.category === 'main' ? '메인 퀘스트' : '서브 퀘스트'}</span>
+            <span class="qj-mini-badge ${statusBadgeClass}">${statusBadgeText}</span>
+          </div>
+          <div class="qj-detail-title">${q.title}</div>
+        </div>
+        ${
+          !isCompleted
+            ? `
+          <button
+            type="button"
+            class="qj-track-btn ${q.isTracked ? 'untrack' : 'primary'}"
+            data-track-quest="${q.id}"
+          >
+            ${q.isTracked ? '추적 해제' : '추적하기'}
+          </button>
+        `
+            : ''
+        }
+      </div>
+
+      ${
+        q.category === 'sub' && q.giverNpcName
+          ? `<div class="qj-npc-row">의뢰인 · ${q.giverNpcName}</div>`
+          : ''
+      }
+
+      ${q.description ? `<p class="qj-desc">${q.description}</p>` : ''}
+
+      <div class="qj-steps-box">
+        <div class="qj-section-label">${isCompleted ? '완료한 목표' : '세부 목표 및 진행 상태'}</div>
+        <ul class="qj-steps-list">${stepsHtml}</ul>
+      </div>
+
+      <div class="qj-progress-wrap">
+        <div class="qj-progress-top">
+          <span>현재 진행도</span>
+          <span>${q.progressText} (${q.progressPercent}%)</span>
+        </div>
+        <div class="qj-progress-bg">
+          <div class="qj-progress-fill ${isCompleted ? 'done' : ''}" style="width: ${q.progressPercent}%"></div>
+        </div>
+      </div>
+
+      ${
+        rewardsHtml
+          ? `
+        <div class="qj-rewards-box">
+          <div class="qj-section-label">${isCompleted ? '획득한 보상' : '완료 보상'}</div>
+          <div class="qj-rewards-list">${rewardsHtml}</div>
+        </div>
+      `
+          : ''
+      }
+    `;
+
+    const trackBtn = qjDetailPane.querySelector('[data-track-quest]');
+    if (trackBtn) {
+      trackBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const targetId = trackBtn.getAttribute('data-track-quest');
+        if (typeof onToggleTrackHandler === 'function') {
+          onToggleTrackHandler(targetId);
+        }
+      });
+    }
+  }
+
+  function renderHudSummary() {
+    const data = lastJournalData;
+    hudCountEl.textContent = String(data.activeCount);
+    hudCountEl.classList.toggle('has-active', data.activeCount > 0);
+    journalOpenBtn.classList.toggle('open-active', journalOpen);
+
+    const tracked = data.trackedQuest;
+    if (!tracked) {
+      trackerCardEl.classList.remove('visible');
+      lastTrackerSignature = '';
+      return;
+    }
+
+    trackerTagEl.textContent = tracked.category === 'main' ? '메인' : '서브';
+    trackerTagEl.classList.toggle('main', tracked.category === 'main');
+    trackerTitleEl.textContent = tracked.title;
+    trackerObjectiveEl.textContent = tracked.currentObjective;
+    trackerCardEl.classList.add('visible');
+
+    const nextSig = `${tracked.id}:${tracked.currentObjective}`;
+    if (lastTrackerSignature && lastTrackerSignature !== nextSig) {
+      trackerCardEl.classList.remove('pulse');
+      void trackerCardEl.offsetWidth;
+      trackerCardEl.classList.add('pulse');
+    }
+    lastTrackerSignature = nextSig;
+  }
+
+  function openJournal(preferredTab = null, preferredQuestId = null) {
+    if (typeof canOpenPredicate === 'function' && !journalOpen && !canOpenPredicate()) {
+      return;
+    }
+    if (preferredTab && ['main', 'sub', 'completed'].includes(preferredTab)) {
+      activeTab = preferredTab;
+    } else {
+      const currentList = lastJournalData[activeTab] || [];
+      if (currentList.length === 0) {
+        if (lastJournalData.trackedQuest) {
+          activeTab = lastJournalData.trackedQuest.category === 'main' ? 'main' : 'sub';
+        } else if (lastJournalData.main.length > 0) {
+          activeTab = 'main';
+        } else if (lastJournalData.sub.length > 0) {
+          activeTab = 'sub';
+        } else if (lastJournalData.completed.length > 0) {
+          activeTab = 'completed';
+        }
+      }
+    }
+    if (preferredQuestId) {
+      selectedQuestId = preferredQuestId;
+    } else if (lastJournalData.trackedQuest && (lastJournalData[activeTab] || []).some((q) => q.id === lastJournalData.trackedQuest.id)) {
+      selectedQuestId = lastJournalData.trackedQuest.id;
+    }
+
+    journalOpen = true;
+    hudContainer.classList.add('journal-open');
+    renderJournalModal();
+    renderHudSummary();
+    journalBackdrop.classList.add('open');
+  }
+
+  function closeJournal() {
+    if (!journalOpen) return;
+    journalOpen = false;
+    hudContainer.classList.remove('journal-open');
+    journalBackdrop.classList.remove('open');
+    renderHudSummary();
+  }
+
+  function toggleJournal() {
+    if (journalOpen) closeJournal();
+    else openJournal();
+  }
+
+  journalOpenBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
+  journalOpenBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    journalOpenBtn.blur();
+    toggleJournal();
+  });
+
+  trackerCardEl.addEventListener('pointerdown', (e) => e.stopPropagation());
+  trackerCardEl.addEventListener('click', (e) => {
+    e.stopPropagation();
+    trackerCardEl.blur();
+    const tracked = lastJournalData.trackedQuest;
+    if (tracked) {
+      openJournal(tracked.category === 'main' ? 'main' : 'sub', tracked.id);
+    } else {
+      openJournal();
+    }
+  });
+
+  qjCloseBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
+  qjCloseBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    closeJournal();
+  });
+
+  qjTabBtns.forEach((btn) => {
+    btn.addEventListener('pointerdown', (e) => e.stopPropagation());
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      activeTab = btn.getAttribute('data-tab') || 'main';
+      selectedQuestId = null;
+      renderJournalModal();
+    });
+  });
+
+  journalBackdrop.addEventListener('pointerdown', (e) => e.stopPropagation());
+  journalBackdrop.addEventListener('click', (e) => {
+    if (e.target === journalBackdrop) {
+      e.stopPropagation();
+      closeJournal();
+    }
+  });
 
   // 2. 수집 토스트 DOM
   const toastEl = document.createElement('div');
@@ -795,119 +1581,44 @@ export function createQuestUI() {
         e.preventDefault();
         e.stopImmediatePropagation();
         closeReward();
+        return;
+      }
+
+      if (journalOpen && e.code === 'Escape') {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        closeJournal();
       }
     },
     true
   );
 
   return {
-    showPanel() {
-      panelEl.classList.add('visible');
+    bindJournalHandlers({ onToggleTrack = null } = {}) {
+      onToggleTrackHandler = onToggleTrack;
     },
-    hidePanel() {
-      panelEl.classList.remove('visible');
+    setCanOpenPredicate(fn) {
+      canOpenPredicate = typeof fn === 'function' ? fn : null;
     },
-    // 메인 퀘스트 ('사라진 등대의 비밀' 등 다단계 퀘스트) 실시간 패널 갱신
-    updateMainQuest(questState) {
-      if (!questState || !questState.active) {
-        mainPanelEl.classList.remove('visible');
-        return;
-      }
-
-      mainPanelEl.classList.add('visible');
-      mainTitleEl.textContent = questState.title || '사라진 등대의 비밀';
-
-      const steps = Array.isArray(questState.steps) ? questState.steps : [];
-      const completedSet = new Set(Array.isArray(questState.completedSteps) ? questState.completedSteps : []);
-      const total = steps.length || 5;
-      const doneCount = Math.min(total, completedSet.size);
-      const isCompleted = Boolean(questState.completed || doneCount >= total);
-      const pct = Math.min(100, (doneCount / total) * 100);
-
-      mainFillEl.style.width = `${pct}%`;
-      mainCountEl.textContent = `${doneCount}/${total}`;
-
-      let firstPendingFound = false;
-      mainStepsEl.innerHTML = steps
-        .map((step, idx) => {
-          const done = completedSet.has(step.id);
-          let isActive = false;
-          if (!done && !firstPendingFound) {
-            firstPendingFound = true;
-            isActive = true;
-          }
-          const extra =
-            step.id === 'find_clues' && typeof questState.discoveredClueCount === 'number' && typeof questState.totalClues === 'number'
-              ? ` (${questState.discoveredClueCount}/${questState.totalClues})`
-              : '';
-          const cls = done ? 'done' : isActive ? 'active' : '';
-          const dotText = done ? '✓' : String(idx + 1);
-          return `
-            <li class="quest-step-item ${cls}">
-              <span class="quest-step-dot">${dotText}</span>
-              <span>${step.label}${extra}</span>
-            </li>
-          `;
-        })
-        .join('');
-
-      mainPanelEl.classList.remove('pulse');
-      void mainPanelEl.offsetWidth;
-
-      if (isCompleted) {
-        mainBadgeEl.textContent = '완료됨';
-        mainBadgeEl.className = 'quest-badge main-quest-badge complete';
-        mainHintEl.textContent = '오래된 항해 기록 획득 ✨';
-        mainPanelEl.classList.add('completed-celebrate');
-      } else {
-        mainBadgeEl.textContent = '메인 진행';
-        mainBadgeEl.className = 'quest-badge main-quest-badge';
-        const activeStep = steps.find((s) => !completedSet.has(s.id));
-        mainHintEl.textContent = activeStep ? `목표: ${activeStep.label}` : '등대의 비밀을 밝혀보세요';
-        mainPanelEl.classList.remove('completed-celebrate');
-        mainPanelEl.classList.add('pulse');
+    renderJournal(data) {
+      if (!data) return;
+      lastJournalData = data;
+      renderHudSummary();
+      if (journalOpen) {
+        renderJournalModal();
       }
     },
-    // 퀘스트 진행 상태 업데이트 (5단계 상태 표시 지원)
-    updateQuestProgress(current, target, isReady, isCompleted, stateOverride = null) {
-      this.showPanel();
-      const pct = Math.min(100, (current / target) * 100);
-      fillEl.style.width = `${pct}%`;
-      countEl.textContent = `${current}/${target}`;
-
-      panelEl.classList.remove('pulse');
-      void panelEl.offsetWidth;
-
-      if (isCompleted || stateOverride === 'COMPLETED') {
-        badgeEl.textContent = '완료됨';
-        badgeEl.className = 'quest-badge complete';
-        goalEl.textContent = '폭시에게 꽃 전달 완료!';
-        hintEl.textContent = '반짝이는 조개 획득 ✨';
-        panelEl.classList.add('completed-celebrate');
-      } else if (stateOverride === 'DELIVERED') {
-        badgeEl.textContent = '전달 완료';
-        badgeEl.className = 'quest-badge complete';
-        goalEl.textContent = '폭시에게 꽃 전달 완료!';
-        hintEl.textContent = '보상을 받는 중... ✨';
-        panelEl.classList.add('pulse');
-      } else if (isReady || stateOverride === 'READY_TO_COMPLETE') {
-        badgeEl.textContent = '전달 가능';
-        badgeEl.className = 'quest-badge complete';
-        goalEl.textContent = '폭시에게 꽃 전달하기';
-        hintEl.textContent = '폭시에게 돌아가 전달하세요!';
-        panelEl.classList.remove('completed-celebrate');
-        panelEl.classList.add('pulse');
-      } else {
-        badgeEl.textContent = '진행 중';
-        badgeEl.className = 'quest-badge';
-        goalEl.textContent = '분홍색 꽃 모으기';
-        hintEl.textContent = '마을 주변을 찾아보세요';
-        panelEl.classList.remove('completed-celebrate');
-        if (current > 0) {
-          panelEl.classList.add('pulse');
-        }
-      }
+    openJournal,
+    closeJournal,
+    toggleJournal,
+    isJournalOpen() {
+      return journalOpen;
     },
+    // 기존 호출 하위 호환 유지 (더 이상 다중 카드를 화면에 나열하지 않음)
+    showPanel() {},
+    hidePanel() {},
+    updateMainQuest() {},
+    updateQuestProgress() {},
     // NPC 아이템 전달 확인창 표시
     showDeliveryConfirmModal(options = {}, onConfirm = null, onCancel = null) {
       onDeliveryConfirm = onConfirm;

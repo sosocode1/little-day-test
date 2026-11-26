@@ -17,9 +17,13 @@ export const QuestStateLabel = {
 
 export const QUEST_DATA = {
   id: 'fox_pink_flower',
+  category: 'sub',
   title: '폭시의 작은 부탁',
+  icon: '🌸',
   giverNpcId: 'fox',
+  giverNpcName: '폭시 (여우 주민)',
   deliveryNpcId: 'fox',
+  description: '소중한 친구에게 줄 꽃다발을 만들고 싶어 하는 폭시를 위해 마을 주변에서 분홍색 꽃 3개를 모아 전달해 주세요.',
   targetCount: 3,
   // 확장 가능한 요구 아이템 목록 (여러 종류의 요구 아이템 추가 가능)
   requirements: [
@@ -80,6 +84,7 @@ export const LIGHTHOUSE_QUEST_DATA = {
   category: 'main',
   title: '사라진 등대의 비밀',
   icon: '🏛️',
+  description: '달빛 섬 북쪽 언덕에 서 있는 오래된 하얀 등대의 비밀을 밝혀야 합니다. 주변에 흩어진 단서를 조사하고 고대 기호 장치를 작동시켜 숨겨진 기록을 찾아보세요.',
   steps: [
     { id: 'explore_lighthouse', label: '등대 주변 탐색' },
     { id: 'find_clues', label: '오래된 단서 발견' },

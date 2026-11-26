@@ -41,7 +41,7 @@ export function createInput(domElement) {
         e.target &&
         typeof e.target.closest === 'function' &&
         e.target.closest(
-          '.inv-overlay, .inv-modal, .wardrobe-overlay, .wardrobe-card, .vanity-overlay, .vanity-card, .time-control-panel, .dialogue-stage, .dialogue-modal, .dialogue-choices-panel, .quest-panel, .quest-stack, .worldmap-overlay, .worldmap-modal, .reward-modal-backdrop, .delivery-modal-backdrop, .clue-modal-backdrop, .lighthouse-puzzle-backdrop'
+          '.inv-overlay, .inv-modal, .wardrobe-overlay, .wardrobe-card, .vanity-overlay, .vanity-card, .time-control-panel, .dialogue-stage, .dialogue-modal, .dialogue-choices-panel, .quest-panel, .quest-stack, .quest-hud-container, .quest-journal-backdrop, .worldmap-overlay, .worldmap-modal, .reward-modal-backdrop, .delivery-modal-backdrop, .clue-modal-backdrop, .lighthouse-puzzle-backdrop'
         );
       if (isOverUI) return;
 

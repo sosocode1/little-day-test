@@ -8,8 +8,13 @@ export function createQuestSystem(inventorySystem = null) {
   let collectedFlowerIds = new Set();
   let rewardClaimed = false;
   let deliveredAt = null;
+  let foxCompletedAt = null;
   const targetCount = QUEST_DATA.targetCount;
   const listeners = new Set();
+
+  // 현재 HUD에 추적 중인 퀘스트 ID (null이면 추적 안 함)
+  let trackedQuestId = null;
+  let manualUntrack = false;
 
   // 메인 퀘스트('사라진 등대의 비밀') 다단계 진행 상태
   let mainQuests = {
@@ -20,7 +25,8 @@ export function createQuestSystem(inventorySystem = null) {
       completed: false,
       completedSteps: [],
       discoveredClueCount: 0,
-      totalClues: 4
+      totalClues: 4,
+      completedAt: null
     }
   };
 
@@ -39,13 +45,152 @@ export function createQuestSystem(inventorySystem = null) {
     };
   }
 
+  // 기존 퀘스트 데이터/상태를 퀘스트 저널 뷰 모델로 정규화 (데이터 중복 생성 없음)
+  function buildJournalData() {
+    const main = [];
+    const sub = [];
+    const completed = [];
+
+    // 1) 메인 퀘스트: 사라진 등대의 비밀
+    const lq = mainQuests[LIGHTHOUSE_QUEST_DATA.id];
+    if (lq && (lq.active || lq.completed)) {
+      const doneSet = new Set(lq.completedSteps);
+      const totalSteps = LIGHTHOUSE_QUEST_DATA.steps.length;
+      const doneSteps = Math.min(totalSteps, doneSet.size);
+      const isDone = Boolean(lq.completed || doneSteps >= totalSteps);
+
+      let firstPendingFound = false;
+      const steps = LIGHTHOUSE_QUEST_DATA.steps.map((step) => {
+        const done = doneSet.has(step.id);
+        let active = false;
+        if (!done && !firstPendingFound) {
+          firstPendingFound = true;
+          active = true;
+        }
+        const extraText =
+          step.id === 'find_clues'
+            ? `(${lq.discoveredClueCount || 0}/${lq.totalClues || 4})`
+            : '';
+        return { id: step.id, label: step.label, done, active, extraText };
+      });
+
+      const activeStep = steps.find((s) => !s.done);
+      const currentObjective = isDone
+        ? '오래된 항해 기록 획득 완료'
+        : activeStep
+          ? `${activeStep.label}${activeStep.extraText ? ` ${activeStep.extraText}` : ''}`
+          : '등대의 비밀을 밝혀보세요';
+
+      const entry = {
+        id: LIGHTHOUSE_QUEST_DATA.id,
+        category: 'main',
+        categoryLabel: '메인',
+        title: LIGHTHOUSE_QUEST_DATA.title,
+        icon: LIGHTHOUSE_QUEST_DATA.icon || '🏛️',
+        description: LIGHTHOUSE_QUEST_DATA.description || '',
+        giverNpcName: null,
+        status: isDone ? 'completed' : 'in_progress',
+        statusLabel: isDone ? '완료됨' : '진행 중',
+        currentObjective,
+        progressText: `${doneSteps}/${totalSteps} 단계`,
+        progressPercent: Math.round((doneSteps / totalSteps) * 100),
+        steps,
+        rewards: LIGHTHOUSE_QUEST_DATA.rewards || [],
+        completedAt: lq.completedAt || null,
+        isTracked: !isDone && trackedQuestId === LIGHTHOUSE_QUEST_DATA.id
+      };
+
+      if (isDone) completed.push(entry);
+      else main.push(entry);
+    }
+
+    // 2) 서브 퀘스트: 폭시의 작은 부탁
+    if (state !== QuestState.NOT_STARTED) {
+      const isDone = state === QuestState.COMPLETED;
+      const isReady = state === QuestState.READY_TO_COMPLETE || state === QuestState.DELIVERED;
+      const curCount = isDone || isReady ? targetCount : collectedCount;
+      const steps = [
+        {
+          id: 'collect_pink_flower',
+          label: '분홍색 꽃 3개 모으기',
+          done: isDone || isReady,
+          active: state === QuestState.IN_PROGRESS,
+          extraText: `(${curCount}/${targetCount})`
+        },
+        {
+          id: 'deliver_to_fox',
+          label: '폭시에게 꽃 전달하기',
+          done: isDone,
+          active: isReady,
+          extraText: ''
+        }
+      ];
+
+      const currentObjective = isDone
+        ? '폭시에게 분홍색 꽃 전달 완료'
+        : isReady
+          ? '폭시에게 분홍색 꽃 전달하기'
+          : `분홍색 꽃 모으기 (${curCount}/${targetCount})`;
+
+      const entry = {
+        id: QUEST_DATA.id,
+        category: 'sub',
+        categoryLabel: '서브',
+        title: QUEST_DATA.title,
+        icon: QUEST_DATA.icon || '🌸',
+        description: QUEST_DATA.description || '',
+        giverNpcName: QUEST_DATA.giverNpcName || '폭시 (여우 주민)',
+        status: isDone ? 'completed' : isReady ? 'ready' : 'in_progress',
+        statusLabel: isDone ? '완료됨' : isReady ? '전달 가능' : '진행 중',
+        currentObjective,
+        progressText: isDone ? '완료' : isReady ? '전달 가능' : `${curCount}/${targetCount}개`,
+        progressPercent: isDone ? 100 : isReady ? 85 : Math.round((curCount / targetCount) * 75),
+        steps,
+        rewards: QUEST_DATA.rewards || [],
+        completedAt: foxCompletedAt || deliveredAt || null,
+        isTracked: !isDone && trackedQuestId === QUEST_DATA.id
+      };
+
+      if (isDone) completed.push(entry);
+      else sub.push(entry);
+    }
+
+    const activeList = [...main, ...sub];
+    let trackedQuest = activeList.find((q) => q.id === trackedQuestId) || null;
+    if (trackedQuestId && !trackedQuest) {
+      trackedQuestId = null;
+    }
+
+    return {
+      main,
+      sub,
+      completed,
+      activeCount: activeList.length,
+      trackedQuestId,
+      trackedQuest
+    };
+  }
+
+  function renderJournalUI() {
+    const data = buildJournalData();
+    if (ui && typeof ui.renderJournal === 'function') {
+      ui.renderJournal(data);
+    }
+  }
+
   function renderMainQuestUI() {
-    if (ui && typeof ui.updateMainQuest === 'function') {
-      ui.updateMainQuest(getLighthouseQuestSnapshot());
+    renderJournalUI();
+  }
+
+  function ensureAutoTrack(questId) {
+    if (!questId) return;
+    if (!trackedQuestId && !manualUntrack) {
+      trackedQuestId = questId;
     }
   }
 
   function notify() {
+    const journal = buildJournalData();
     for (const cb of listeners) {
       cb({
         state,
@@ -54,12 +199,16 @@ export function createQuestSystem(inventorySystem = null) {
         collectedFlowerIds: Array.from(collectedFlowerIds),
         rewardClaimed,
         deliveredAt,
+        foxCompletedAt,
+        trackedQuestId,
+        manualUntrack,
         completedDialogues: Array.from(completedDialogues),
         discoveredClues: Array.from(discoveredClues),
         triggeredQuestHooks: Array.from(triggeredQuestHooks),
         mainQuests: {
           [LIGHTHOUSE_QUEST_DATA.id]: getLighthouseQuestSnapshot()
-        }
+        },
+        journal
       });
     }
   }
@@ -91,6 +240,10 @@ export function createQuestSystem(inventorySystem = null) {
 
     rewardClaimed = true;
     state = QuestState.COMPLETED;
+    if (!foxCompletedAt) foxCompletedAt = Date.now();
+    if (trackedQuestId === questDef.id) {
+      trackedQuestId = null;
+    }
 
     try {
       if (typeof localStorage !== 'undefined') {
@@ -102,7 +255,7 @@ export function createQuestSystem(inventorySystem = null) {
       }
     } catch (e) {}
 
-    ui.updateQuestProgress(targetCount, targetCount, true, true, QuestState.COMPLETED);
+    renderJournalUI();
     notify();
     return granted;
   }
@@ -135,8 +288,8 @@ export function createQuestSystem(inventorySystem = null) {
       collectedCount = 0;
       collectedFlowerIds.clear();
       rewardClaimed = false;
-      ui.updateQuestProgress(collectedCount, targetCount, false, false, QuestState.IN_PROGRESS);
-      ui.showPanel();
+      ensureAutoTrack(QUEST_DATA.id);
+      renderJournalUI();
       ui.showToast('새 퀘스트 수락: 폭시의 작은 부탁', '🌸', 2600);
       notify();
       return true;
@@ -161,11 +314,11 @@ export function createQuestSystem(inventorySystem = null) {
 
       if (collectedCount >= targetCount) {
         state = QuestState.READY_TO_COMPLETE;
-        ui.updateQuestProgress(targetCount, targetCount, true, false, QuestState.READY_TO_COMPLETE);
+        renderJournalUI();
         ui.showToast('분홍색 꽃 3개 수집 완료! 폭시에게 전달해 보세요! 🌸', '✨', 3000);
       } else {
         ui.showCollectToast(collectedCount, targetCount);
-        ui.updateQuestProgress(collectedCount, targetCount, false, false, QuestState.IN_PROGRESS);
+        renderJournalUI();
       }
 
       notify();
@@ -228,7 +381,7 @@ export function createQuestSystem(inventorySystem = null) {
       state = QuestState.DELIVERED;
       deliveredAt = Date.now();
       completedDialogues.add('fox:quest_complete');
-      ui.updateQuestProgress(targetCount, targetCount, true, false, QuestState.DELIVERED);
+      renderJournalUI();
       notify();
 
       // 3) 보상 지급 (반짝이는 조개 1개, 중복 지급 원천 차단) -> 보상 지급 완료 (COMPLETED)
@@ -310,12 +463,50 @@ export function createQuestSystem(inventorySystem = null) {
       notify();
       return true;
     },
+    // --- 퀘스트 저널 및 추적 관리 API ---
+    getJournalData() {
+      return buildJournalData();
+    },
+    getTrackedQuestId() {
+      return trackedQuestId;
+    },
+    getTrackedQuest() {
+      return buildJournalData().trackedQuest;
+    },
+    trackQuest(questId) {
+      if (!questId) return false;
+      const data = buildJournalData();
+      const target = [...data.main, ...data.sub].find((q) => q.id === questId);
+      if (!target) return false;
+      trackedQuestId = questId;
+      manualUntrack = false;
+      renderJournalUI();
+      notify();
+      return true;
+    },
+    untrackQuest() {
+      if (trackedQuestId === null && manualUntrack) return false;
+      trackedQuestId = null;
+      manualUntrack = true;
+      renderJournalUI();
+      notify();
+      return true;
+    },
+    toggleTrackQuest(questId) {
+      if (!questId) return false;
+      if (trackedQuestId === questId) {
+        return this.untrackQuest();
+      }
+      return this.trackQuest(questId);
+    },
+
     // --- 메인 퀘스트('사라진 등대의 비밀') 관리 API ---
     startLighthouseQuest(showNotice = true) {
       const q = mainQuests[LIGHTHOUSE_QUEST_DATA.id];
       if (q.active) return false;
       q.active = true;
-      renderMainQuestUI();
+      ensureAutoTrack(LIGHTHOUSE_QUEST_DATA.id);
+      renderJournalUI();
       if (showNotice) {
         ui.showToast('새 메인 퀘스트: 사라진 등대의 비밀 🏛️', '🏛️', 3000);
       }
@@ -357,6 +548,10 @@ export function createQuestSystem(inventorySystem = null) {
         stepSet.add('solve_puzzle');
         stepSet.add('obtain_log');
         q.completed = true;
+        if (!q.completedAt) q.completedAt = Date.now();
+        if (trackedQuestId === LIGHTHOUSE_QUEST_DATA.id) {
+          trackedQuestId = null;
+        }
       }
 
       // 정의된 순서대로 정렬
@@ -371,6 +566,10 @@ export function createQuestSystem(inventorySystem = null) {
         q.totalClues = progress.totalClues;
       }
 
+      if (!wasActive && q.active && !q.completed) {
+        ensureAutoTrack(LIGHTHOUSE_QUEST_DATA.id);
+      }
+
       const changed =
         wasActive !== q.active ||
         wasCompleted !== q.completed ||
@@ -378,7 +577,7 @@ export function createQuestSystem(inventorySystem = null) {
         prevClueCount !== q.discoveredClueCount;
 
       if (q.active || changed) {
-        renderMainQuestUI();
+        renderJournalUI();
       }
       if (changed) {
         notify();
@@ -458,6 +657,9 @@ export function createQuestSystem(inventorySystem = null) {
         collectedFlowerIds: Array.from(collectedFlowerIds),
         rewardClaimed: Boolean(rewardClaimed || state === QuestState.COMPLETED),
         deliveredAt,
+        foxCompletedAt,
+        trackedQuestId,
+        manualUntrack,
         completedDialogues: Array.from(completedDialogues),
         discoveredClues: Array.from(discoveredClues),
         triggeredQuestHooks: Array.from(triggeredQuestHooks),
@@ -468,7 +670,8 @@ export function createQuestSystem(inventorySystem = null) {
             completed: Boolean(lq.completed),
             completedSteps: [...lq.completedSteps],
             discoveredClueCount: lq.discoveredClueCount || 0,
-            totalClues: lq.totalClues || 4
+            totalClues: lq.totalClues || 4,
+            completedAt: lq.completedAt || null
           }
         }
       };
@@ -481,6 +684,7 @@ export function createQuestSystem(inventorySystem = null) {
         collectedCount = Math.max(0, Math.min(targetCount, Number(savedData.collectedCount) || 0));
         collectedFlowerIds = new Set(Array.isArray(savedData.collectedFlowerIds) ? savedData.collectedFlowerIds : []);
         deliveredAt = savedData.deliveredAt || null;
+        foxCompletedAt = savedData.foxCompletedAt || deliveredAt || null;
         rewardClaimed = Boolean(
           savedData.rewardClaimed ||
           state === QuestState.COMPLETED ||
@@ -496,20 +700,6 @@ export function createQuestSystem(inventorySystem = null) {
         // 전달 완료 직후 중단된 저장 데이터가 있다면 안전하게 보상 1회 지급 후 완료 처리
         if (state === QuestState.DELIVERED && !rewardClaimed) {
           grantRewardsOnce(QUEST_DATA);
-        }
-
-        if (state === QuestState.IN_PROGRESS) {
-          ui.updateQuestProgress(collectedCount, targetCount, false, false, QuestState.IN_PROGRESS);
-          ui.showPanel();
-        } else if (state === QuestState.READY_TO_COMPLETE) {
-          ui.updateQuestProgress(collectedCount, targetCount, true, false, QuestState.READY_TO_COMPLETE);
-          ui.showPanel();
-        } else if (state === QuestState.DELIVERED) {
-          ui.updateQuestProgress(targetCount, targetCount, true, false, QuestState.DELIVERED);
-          ui.showPanel();
-        } else if (state === QuestState.COMPLETED) {
-          ui.updateQuestProgress(targetCount, targetCount, true, true, QuestState.COMPLETED);
-          ui.showPanel();
         }
       }
 
@@ -531,9 +721,21 @@ export function createQuestSystem(inventorySystem = null) {
         lq.completedSteps = Array.isArray(savedLq.completedSteps) ? [...savedLq.completedSteps] : [];
         lq.discoveredClueCount = Math.max(0, Number(savedLq.discoveredClueCount) || 0);
         lq.totalClues = Math.max(1, Number(savedLq.totalClues) || 4);
-        renderMainQuestUI();
+        lq.completedAt = savedLq.completedAt || null;
       }
 
+      // 추적 퀘스트 상태 복원 (기존 세이브 하위 호환: trackedQuestId 미저장 시 진행 중인 첫 퀘스트 자동 선택)
+      if ('trackedQuestId' in savedData) {
+        trackedQuestId = savedData.trackedQuestId || null;
+        manualUntrack = Boolean(savedData.manualUntrack);
+      } else {
+        manualUntrack = false;
+        const snapshot = buildJournalData();
+        const firstActive = snapshot.main[0] || snapshot.sub[0] || null;
+        trackedQuestId = firstActive ? firstActive.id : null;
+      }
+
+      renderJournalUI();
       notify();
     },
     isFlowerCollected(flowerId) {
@@ -553,6 +755,15 @@ export function createQuestSystem(inventorySystem = null) {
   system.registerQuestHook('ack_fox_completion', () => {
     completedDialogues.add('fox:quest_complete');
   });
+
+  // 저널 UI와 추적/열기 핸들러 바인딩 및 초기 HUD 렌더링
+  if (ui && typeof ui.bindJournalHandlers === 'function') {
+    ui.bindJournalHandlers({
+      onToggleTrack: (questId) => system.toggleTrackQuest(questId),
+      onUntrack: () => system.untrackQuest()
+    });
+  }
+  renderJournalUI();
 
   return system;
 }

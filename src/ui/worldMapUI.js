@@ -466,7 +466,7 @@ export function createWorldMapUI(areaManager, questSystem, inventorySystem) {
     if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
 
     if (e.code === 'KeyM') {
-      if (document.querySelector('.dialogue-stage.open, .inv-overlay.visible, .clue-modal-backdrop.open, .lighthouse-puzzle-backdrop.open')) return;
+      if (document.querySelector('.dialogue-stage.open, .inv-overlay.visible, .clue-modal-backdrop.open, .lighthouse-puzzle-backdrop.open, .quest-journal-backdrop.open')) return;
       toggle();
     } else if (e.code === 'Escape' && isOpen) {
       close();

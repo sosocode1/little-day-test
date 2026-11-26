@@ -162,12 +162,13 @@ export function createInteractionSystem(
     setSaveSystem(ss) {
       saveSystem = ss;
     },
-    // 대화창, 전달 확인창, 보상 모달, 보관함, 옷장, 화장대, 환영 가이드, 월드맵, 단서창, 퍼즐창 또는 공간 전환 중인지 여부 (플레이어 이동 잠금용)
+    // 대화창, 전달 확인창, 보상 모달, 퀘스트 저널, 보관함, 옷장, 화장대, 환영 가이드, 월드맵, 단서창, 퍼즐창 또는 공간 전환 중인지 여부 (플레이어 이동 잠금용)
     isInteracting() {
       return (
         ui.isOpen() ||
         (questSystem && questSystem.ui.isDeliveryModalOpen && questSystem.ui.isDeliveryModalOpen()) ||
         (questSystem && questSystem.ui.isRewardModalOpen()) ||
+        (questSystem && questSystem.ui.isJournalOpen && questSystem.ui.isJournalOpen()) ||
         (inventoryUI && inventoryUI.isOpen()) ||
         (wardrobeUI && wardrobeUI.isOpen()) ||
         (vanityUI && vanityUI.isOpen()) ||
@@ -220,6 +221,7 @@ export function createInteractionSystem(
       }
 
       const isWorldMapOpen = worldMapUI && worldMapUI.isOpen();
+      const isJournalOpen = questSystem && questSystem.ui.isJournalOpen && questSystem.ui.isJournalOpen();
       const isClueOpen = clueUI && clueUI.isOpen();
       const isPuzzleOpen = lighthousePuzzleUI && lighthousePuzzleUI.isOpen();
       const isNight = Boolean(timeSystem && typeof timeSystem.isNight === 'function' && timeSystem.isNight());
@@ -228,6 +230,7 @@ export function createInteractionSystem(
         !isDialogueOpen &&
         !isDeliveryOpen &&
         !isRewardOpen &&
+        !isJournalOpen &&
         !isTransitioning &&
         !isInventoryOpen &&
         !isWardrobeOpen &&
@@ -249,10 +252,11 @@ export function createInteractionSystem(
             : 'talk'
       });
 
-      // 전환 중이거나 전달 확인창/인벤토리/옷장/화장대/월드맵/단서창/퍼즐창이 열려 있는 경우 프롬프트 숨김 및 입력 스킵
+      // 전환 중이거나 전달 확인창/퀘스트 저널/인벤토리/옷장/화장대/월드맵/단서창/퍼즐창이 열려 있는 경우 프롬프트 숨김 및 입력 스킵
       if (
         isTransitioning ||
         isDeliveryOpen ||
+        isJournalOpen ||
         isInventoryOpen ||
         isWardrobeOpen ||
         isVanityOpen ||

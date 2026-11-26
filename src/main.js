@@ -188,6 +188,9 @@ interaction.setDeliveryEffect(deliveryEffect);
 if (typeof inventoryUI.setCanOpenPredicate === 'function') {
   inventoryUI.setCanOpenPredicate(() => !interaction.isInteracting());
 }
+if (questSystem?.ui && typeof questSystem.ui.setCanOpenPredicate === 'function') {
+  questSystem.ui.setCanOpenPredicate(() => !interaction.isInteracting());
+}
 
 let last = performance.now();
 renderer.setAnimationLoop((time) => {
