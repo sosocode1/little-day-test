@@ -10,7 +10,7 @@ export const NPC_DATA = {
     displayName: '버니',
     species: 'rabbit',
     dayRole: '토끼 주민',
-    nightRole: '밤의 토끼 수인',
+    nightRole: '밤의 모습',
     portrait: '🐰',
     portraitType: 'rabbit',
     color: '#ffb3c8',
@@ -115,8 +115,8 @@ export const NPC_DATA = {
           },
           night_change: {
             lines: [
-              '달빛이 스며들면 내 긴 귀도, 숨겨진 감각도 깨어나 수인의 모습이 돼.\n낮보다 훨씬 멀리 있는 소리와 섬의 기운을 들을 수 있거든.',
-              '그래서 밤이 되면 다들 말이 적어지는 거야... 들려오는 진실이 너무 선명하니까.'
+              '밤이 되면 귀가 조금 더 밝아져.\n낮에는 들리지 않던 바람 소리도, 풀잎 사이를 지나가는 작은 발소리도 들리거든.',
+              '그런데 말이야… 이 섬의 밤에는 나만 들을 수 있는 소리가 하나 더 있어.'
             ],
             next: null,
             clueId: 'clue_rabbit_beastkin',
@@ -149,7 +149,7 @@ export const NPC_DATA = {
     displayName: '폭시',
     species: 'fox',
     dayRole: '여우 주민',
-    nightRole: '밤의 여우 수인',
+    nightRole: '밤의 모습',
     portrait: '🦊',
     portraitType: 'fox',
     color: '#f6aa6a',
@@ -285,11 +285,12 @@ export const NPC_DATA = {
           },
           night_change: {
             lines: [
-              '밤이 되어 수인의 모습이 되면, 낮에는 숨겨 두었던 오래된 기억이 돌아오거든.\n꼬리 끝까지 달빛이 스며들면 거짓말도, 숨겨진 문도 다 보이게 되지.'
+              '후훗, 밤바람을 쐬면 낮에는 잊고 지내던 오래된 기억들이 스멀스멀 떠오르곤 해.',
+              '달빛이 꼬리 끝까지 닿을 때쯤이면, 평소엔 그냥 지나치던 작은 흔적이나 숨겨진 문도 유독 또렷하게 보이거든.'
             ],
             next: null,
             clueId: 'clue_fox_beastkin',
-            clueTitle: '수인화 때 되살아나는 기억'
+            clueTitle: '달빛 아래 되살아나는 기억'
           },
           night_island_secret: {
             lines: [

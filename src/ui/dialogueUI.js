@@ -1242,11 +1242,11 @@ export function createDialogueUI() {
       nameBadgeEl.textContent = npc.data.displayName || npc.data.name || '주민';
 
       const roleText = isNight
-        ? npc.data.nightRole || npc.data.role || '밤의 수인'
+        ? npc.data.nightRole || npc.data.role || '밤의 모습'
         : npc.data.dayRole || npc.data.role || '마을 주민';
       roleTagEl.textContent = roleText;
       roleTagEl.style.display = 'inline-flex';
-      timePillEl.textContent = isNight ? '🌙 밤 · 수인 상태' : '☀️ 낮 · 일상';
+      timePillEl.textContent = isNight ? '🌙 달빛에 깨어난 모습' : '☀️ 낮 · 일상';
 
       promptEl.classList.remove('visible');
       stageEl.classList.add('open');
