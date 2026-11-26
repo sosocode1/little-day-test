@@ -146,6 +146,7 @@ const interaction = createInteractionSystem(
   timeSystem,
   saveSystem
 );
+interaction.setCamera(camera);
 
 let last = performance.now();
 renderer.setAnimationLoop((time) => {
@@ -159,9 +160,11 @@ renderer.setAnimationLoop((time) => {
   // 밤 22:00 미스터리 이벤트 갱신 (시간 체크, 푸른빛 오라 및 반딧불이 애니메이션)
   moonflowerEvent.update(dt, spaceManager.isIndoor());
 
-  // I 키 입력 시 아이템 보관함 토글
+  // I 키 입력 시 아이템 보관함 토글 (대화창 등 다른 상호작용 모달 오픈 중에는 무시)
   if (input.consumeInventoryToggle()) {
-    inventoryUI.toggle();
+    if (!interaction.isInteracting() || inventoryUI.isOpen()) {
+      inventoryUI.toggle();
+    }
   }
 
   // 동적 환경 업데이트 (낮과 밤 태양/달 궤도, 하늘/안개 색상, 가로등/창문/반딧불이 및 활성 지역 갱신)

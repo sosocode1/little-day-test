@@ -1,9 +1,9 @@
-// 퀘스트 상태 상수 및 퀘스트 데이터
+// 퀘스트 상태 상수 및 퀘스트 데이터 (기존 폭시 퀘스트 + 추후 퀘스트 확장 훅 메타데이터)
 export const QuestState = {
-  NOT_STARTED: 'NOT_STARTED',         // 시작 전
-  IN_PROGRESS: 'IN_PROGRESS',         // 진행 중 (꽃 모으는 중)
+  NOT_STARTED: 'NOT_STARTED',             // 시작 전
+  IN_PROGRESS: 'IN_PROGRESS',             // 진행 중 (꽃 모으는 중)
   READY_TO_COMPLETE: 'READY_TO_COMPLETE', // 수집 완료 (폭시에게 전달 가능)
-  COMPLETED: 'COMPLETED'              // 퀘스트 완료 (보상 수령 완료)
+  COMPLETED: 'COMPLETED'                  // 퀘스트 완료 (보상 수령 완료)
 };
 
 export const QUEST_DATA = {
@@ -25,7 +25,7 @@ export const QUEST_DATA = {
     ],
     // 2. 진행 중 (꽃 수집 미완료)
     in_progress: (current, target) => [
-      `분홍색 꽃을 찾고 있구나! 마을 주변에 활짝 피어 있을 거야.`,
+      '분홍색 꽃을 찾고 있구나! 마을 주변에 활짝 피어 있을 거야.',
       `아직 꽃이 더 필요해! (현재 모은 꽃: ${current}/${target}개)`
     ],
     // 3. 수집 완료 (꽃 3개 모두 모음 -> 전달)
@@ -40,4 +40,13 @@ export const QUEST_DATA = {
       '선물로 건넨 달빛 브로치는 마음에 들었니? 언제든 놀러오렴.'
     ]
   }
+};
+
+// 대화 선택지 → 퀘스트 연동용 훅 ID 상수 (향후 신규 퀘스트 추가 시 이 ID로 핸들러 바인딩)
+export const DIALOGUE_QUEST_HOOKS = {
+  START_FOX_FLOWER: 'start_fox_pink_flower',
+  COMPLETE_FOX_FLOWER: 'complete_fox_pink_flower',
+  HINT_LIGHTHOUSE_DAY: 'hint_lighthouse_day',
+  DISCOVER_LIGHTHOUSE_CLUE: 'discover_lighthouse_clue',
+  DISCOVER_ISLAND_PAST_CLUE: 'discover_island_past_clue'
 };

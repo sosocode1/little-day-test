@@ -35,6 +35,21 @@ export function createQuestUI() {
       transform: translateX(0);
       pointer-events: auto;
     }
+    .quest-panel.pulse {
+      animation: questProgressPulse 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .quest-panel.completed-celebrate {
+      border-color: #8fd9ae;
+      box-shadow:
+        0 12px 32px rgba(80, 175, 120, 0.28),
+        0 0 0 3px rgba(175, 235, 200, 0.45);
+      animation: questProgressPulse 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    @keyframes questProgressPulse {
+      0% { transform: scale(1); }
+      45% { transform: scale(1.045); }
+      100% { transform: scale(1); }
+    }
     @media (max-width: 1280px) {
       .quest-panel {
         width: 220px;
@@ -457,21 +472,32 @@ export function createQuestUI() {
       fillEl.style.width = `${pct}%`;
       countEl.textContent = `${current}/${target}`;
 
+      panelEl.classList.remove('pulse');
+      // 리플로우 트리거로 연속 수집 시에도 매번 부드러운 갱신 펄스 재생
+      void panelEl.offsetWidth;
+
       if (isCompleted) {
         badgeEl.textContent = '완료됨';
         badgeEl.className = 'quest-badge complete';
-        goalEl.textContent = '꽃 3개 수집 완료!';
-        hintEl.textContent = '달빛 브로치 획득 ✨';
+        goalEl.textContent = '분홍색 꽃 3개 수집 완료!';
+        hintEl.textContent = '폭시에게 말을 걸어보세요 ✨';
+        panelEl.classList.add('completed-celebrate');
       } else if (isReady) {
         badgeEl.textContent = '목표 달성';
         badgeEl.className = 'quest-badge complete';
         goalEl.textContent = '폭시에게 꽃 전달하기';
         hintEl.textContent = '폭시에게 돌아가세요!';
+        panelEl.classList.remove('completed-celebrate');
+        panelEl.classList.add('pulse');
       } else {
         badgeEl.textContent = '진행 중';
         badgeEl.className = 'quest-badge';
         goalEl.textContent = '분홍색 꽃 모으기';
         hintEl.textContent = '마을 주변을 찾아보세요';
+        panelEl.classList.remove('completed-celebrate');
+        if (current > 0) {
+          panelEl.classList.add('pulse');
+        }
       }
     },
     // 범용 토스트 알림 팝업

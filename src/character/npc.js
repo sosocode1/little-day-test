@@ -151,44 +151,67 @@ function buildFoxModel() {
   return { root: group, headGroup, ears, tail: tailGroup, body };
 }
 
-// NPC 객체 생성 팩토리
-export function createNPC(type, x, z, initialRotY = 0) {
-  const isRabbit = type === 'rabbit';
-  const model = isRabbit ? buildRabbitModel() : buildFoxModel();
-  const data = isRabbit ? NPC_DATA.rabbit : NPC_DATA.fox;
+// 기존 동물 NPC 모델 빌더 레지스트리 (추후 동물 NPC 추가 시 확장 가능)
+const NPC_BUILDERS = {
+  rabbit: {
+    build: buildRabbitModel,
+    interactRadius: 2.8,
+    overheadRadius: 5.5,
+    headHeight: 1.85,
+    animate(model, time) {
+      const breathe = Math.sin(time * 2.2) * 0.02;
+      model.body.scale.y = 1.15 + breathe;
+      // 토끼: 귀 쫑긋 쫑긋
+      model.ears[0].rotation.z = -0.15 + Math.sin(time * 3) * 0.06;
+      model.ears[1].rotation.z = 0.15 - Math.sin(time * 3 + 0.5) * 0.06;
+    }
+  },
+  fox: {
+    build: buildFoxModel,
+    interactRadius: 2.8,
+    overheadRadius: 5.5,
+    headHeight: 1.78,
+    animate(model, time) {
+      const breathe = Math.sin(time * 2.2) * 0.02;
+      model.body.scale.y = 1.15 + breathe;
+      // 여우: 꼬리 살랑살랑
+      model.tail.rotation.y = Math.sin(time * 2.5) * 0.25;
+      model.tail.rotation.z = Math.cos(time * 2.5) * 0.15;
+    }
+  }
+};
+
+// 동물 NPC 객체 생성 팩토리 (기존 외형·애니메이션·충돌 100% 유지)
+export function createNPC(type, x, z, initialRotY = 0, overrides = {}) {
+  const builderSpec = NPC_BUILDERS[type] || NPC_BUILDERS.fox;
+  const model = builderSpec.build();
+  const baseData = NPC_DATA[type] || NPC_DATA.fox;
+  const data = { ...baseData, ...(overrides.data || {}) };
 
   model.root.position.set(x, 0, z);
   model.root.rotation.y = initialRotY;
-  model.root.name = `npc-${type}`;
+  model.root.name = `npc-${overrides.id || type}`;
 
   let time = Math.random() * 10;
   let currentRotY = initialRotY;
 
   return {
+    id: overrides.id || data.id || type,
     type,
     data,
     root: model.root,
     position: model.root.position,
-    collider: { type: 'circle', x, z, r: 0.55 },
-    interactRadius: 2.6,
+    collider: { type: 'circle', x, z, r: overrides.colliderRadius ?? 0.55 },
+    interactRadius: overrides.interactRadius ?? builderSpec.interactRadius ?? 2.8,
+    overheadRadius: overrides.overheadRadius ?? builderSpec.overheadRadius ?? 5.5,
+    headHeight: overrides.headHeight ?? builderSpec.headHeight ?? 1.8,
+    talkable: data.talkable !== false,
 
     // 플레이어를 바라보는 회전 및 아이들 애니메이션
     update(dt, playerPos = null, isTalking = false) {
       time += dt;
 
-      // 대기 호흡
-      const breathe = Math.sin(time * 2.2) * 0.02;
-      model.body.scale.y = 1.15 + breathe;
-
-      if (isRabbit) {
-        // 토끼: 귀 쫑긋 쫑긋
-        model.ears[0].rotation.z = -0.15 + Math.sin(time * 3) * 0.06;
-        model.ears[1].rotation.z = 0.15 - Math.sin(time * 3 + 0.5) * 0.06;
-      } else {
-        // 여우: 꼬리 살랑살랑
-        model.tail.rotation.y = Math.sin(time * 2.5) * 0.25;
-        model.tail.rotation.z = Math.cos(time * 2.5) * 0.15;
-      }
+      builderSpec.animate(model, time, isTalking);
 
       // 대화 중이거나 플레이어가 근접하면 플레이어 쪽으로 몸을 살짝 회전
       if (playerPos) {

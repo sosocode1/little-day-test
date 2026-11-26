@@ -1,4 +1,6 @@
 import { createDialogueUI } from '../ui/dialogueUI.js';
+import { createNpcOverheadUI } from '../ui/npcOverheadUI.js';
+import { resolveNpcDialogueTree } from '../data/dialogue.js';
 import { QuestState } from '../data/quest.js';
 
 export function createInteractionSystem(
@@ -22,8 +24,8 @@ export function createInteractionSystem(
   saveSystem = null
 ) {
   const ui = createDialogueUI();
-  let nearestNpc = null;
-  let nearestFlower = null;
+  const overheadUI = createNpcOverheadUI();
+  let camera = null;
   let activeNpc = null;
   let cooldownTimer = 0;
   let promptTapRequested = false;
@@ -34,6 +36,7 @@ export function createInteractionSystem(
 
   return {
     ui,
+    overheadUI,
     npcs,
     flowerManager,
     questSystem,
@@ -45,6 +48,9 @@ export function createInteractionSystem(
     moonflowerEvent,
     areaManager,
     worldMapUI,
+    setCamera(cam) {
+      camera = cam;
+    },
     setTimeSystem(ts) {
       timeSystem = ts;
     },
@@ -67,6 +73,7 @@ export function createInteractionSystem(
     update(playerPos, input, dt) {
       if (welcomeGuideUI && welcomeGuideUI.isOpen()) {
         ui.hidePrompt();
+        overheadUI.hideAll();
         return;
       }
 
@@ -82,20 +89,45 @@ export function createInteractionSystem(
 
       // 1. NPC들의 아이들 애니메이션 및 시선 업데이트 (마을 야외일 때만)
       const currentSpace = spaceManager ? spaceManager.getCurrentSpace() : 'village';
-      const isIndoor = spaceManager && spaceManager.isIndoor();
+      if (flowerManager && typeof flowerManager.setVisible === 'function') {
+        flowerManager.setVisible(currentSpace === 'village');
+      }
       if (currentSpace === 'village') {
         for (const npc of npcs) {
           const isCurrentActive = isDialogueOpen && activeNpc === npc;
           npc.update(dt, playerPos, isCurrentActive);
         }
 
-        // 2. 수집 가능한 꽃들 애니메이션 업데이트
+        // 2. 수집 가능한 꽃들(및 반짝임 파티클) 애니메이션 업데이트
         if (flowerManager) {
           flowerManager.update(dt);
         }
       }
 
       const isWorldMapOpen = worldMapUI && worldMapUI.isOpen();
+      const isNight = Boolean(timeSystem && typeof timeSystem.isNight === 'function' && timeSystem.isNight());
+      const canShowOverhead =
+        currentSpace === 'village' &&
+        !isDialogueOpen &&
+        !isRewardOpen &&
+        !isTransitioning &&
+        !isInventoryOpen &&
+        !isWardrobeOpen &&
+        !isVanityOpen &&
+        !isWorldMapOpen;
+
+      // 동물 NPC 머리 위 이름표 & 말풍선/느낌표/밤 단서 표시 갱신
+      overheadUI.update({
+        npcs,
+        playerPos,
+        camera,
+        visible: canShowOverhead,
+        isNight,
+        getIndicatorType: (npcId, nightFlag) =>
+          questSystem && typeof questSystem.getNpcIndicatorType === 'function'
+            ? questSystem.getNpcIndicatorType(npcId, nightFlag)
+            : 'talk'
+      });
 
       // 전환 중이거나 인벤토리/옷장/화장대/월드맵이 열려 있는 경우 프롬프트 숨김 및 입력 스킵
       if (isTransitioning || isInventoryOpen || isWardrobeOpen || isVanityOpen || isWorldMapOpen) {
@@ -105,18 +137,17 @@ export function createInteractionSystem(
 
       // 3. 보상 모달이 열려 있는 경우
       if (isRewardOpen) {
-        if (interactPressed) {
+        ui.hidePrompt();
+        if (interactPressed && cooldownTimer <= 0) {
+          cooldownTimer = 0.25;
           questSystem.ui.closeRewardModal();
         }
         return;
       }
 
-      // 4. 대화창이 열려 있는 경우
+      // 4. 대화창이 열려 있는 경우 (키보드 제어는 dialogueUI의 전용 단축키 핸들러가 중복 없이 처리)
       if (isDialogueOpen) {
         ui.hidePrompt();
-        if (interactPressed) {
-          ui.advance();
-        }
         return;
       }
 
@@ -202,7 +233,7 @@ export function createInteractionSystem(
           }
         }
 
-        // (2) 꽃 수집
+        // (2) 월드 수집 아이템 (분홍색 꽃 등 확장 가능)
         if (
           flowerManager &&
           questSystem &&
@@ -216,9 +247,9 @@ export function createInteractionSystem(
               candidates.push({
                 id: flower.id || 'flower',
                 type: 'flower',
-                icon: '🌸',
+                icon: flower.icon || '🌸',
                 dist,
-                prompt: '분홍색 꽃 꺾기',
+                prompt: flower.prompt || '수집하기',
                 execute: () => {
                   if (questSystem.getState() === QuestState.NOT_STARTED) {
                     questSystem.startQuest();
@@ -230,35 +261,58 @@ export function createInteractionSystem(
           }
         }
 
-        // (3) NPC 대화
+        // (3) 동물 NPC 대화 (낮/밤 시간대 연동 + 분기 선택지 + 퀘스트 훅)
         for (const npc of npcs) {
+          if (!npc || npc.talkable === false) continue;
           const dist = Math.hypot(playerPos.x - npc.position.x, playerPos.z - npc.position.z);
           if (dist <= npc.interactRadius) {
+            const npcId = npc.id || npc.type;
             candidates.push({
-              id: npc.id || npc.type,
+              id: npcId,
               type: 'npc',
-              icon: '💬',
+              icon: isNight ? '🌙' : '💬',
               dist,
-              prompt: `${npc.data.name}와 대화하기`,
+              prompt: '대화하기',
               execute: () => {
                 activeNpc = npc;
-                if (npc.type === 'fox' && questSystem) {
-                  npc.data.dialogues = questSystem.getFoxDialogues();
-                }
-                const currentQuestState = questSystem ? questSystem.getState() : null;
+                const period = isNight ? 'night' : 'day';
+                const hasCompleted =
+                  questSystem && typeof questSystem.hasCompletedDialogue === 'function'
+                    ? questSystem.hasCompletedDialogue(npcId, period)
+                    : false;
+                const hasSeenFoxCompletion =
+                  questSystem && typeof questSystem.hasSeenFoxCompletion === 'function'
+                    ? questSystem.hasSeenFoxCompletion()
+                    : false;
+
+                const resolvedTree = resolveNpcDialogueTree(npcId, {
+                  isNight,
+                  hasCompleted,
+                  hasSeenFoxCompletion,
+                  foxQuestState: questSystem ? questSystem.getState() : null,
+                  foxCollectedCount: questSystem ? questSystem.getCollectedCount() : 0,
+                  foxTargetCount: questSystem ? questSystem.getTargetCount() : 3
+                });
 
                 ui.hidePrompt();
-                ui.openDialogue(npc, () => {
-                  activeNpc = null;
-                  cooldownTimer = 0.4;
-                  if (npc.type === 'fox' && questSystem) {
-                    if (currentQuestState === QuestState.NOT_STARTED) {
-                      questSystem.startQuest();
-                    } else if (currentQuestState === QuestState.READY_TO_COMPLETE) {
-                      questSystem.completeQuest(player);
+                overheadUI.hideAll();
+                ui.openDialogue(
+                  npc,
+                  (result = {}) => {
+                    activeNpc = null;
+                    cooldownTimer = 0.35;
+
+                    if (result.completed && questSystem) {
+                      if (typeof questSystem.onNpcDialogueCompleted === 'function') {
+                        questSystem.onNpcDialogueCompleted(npcId, result, { isNight, player });
+                      }
+                      if (saveSystem && typeof saveSystem.save === 'function') {
+                        saveSystem.save();
+                      }
                     }
-                  }
-                });
+                  },
+                  { isNight, resolvedTree }
+                );
               }
             });
           }
