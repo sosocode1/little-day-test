@@ -186,6 +186,75 @@ export const ITEMS = {
     }
   },
 
+  // 마을 수집품 및 추후 확장용 수집 아이템 데이터 (수량 관리 + NPC 전달 확장 구조)
+  pink_flower: {
+    id: 'pink_flower',
+    name: '분홍색 꽃',
+    type: ItemType.COLLECTIBLE,
+    categoryName: '수집품',
+    icon: '🌸',
+    imageType: 'pink_flower',
+    stackable: true,
+    questId: 'fox_pink_flower',
+    deliverable: true,
+    description: '마을 주변에서 발견할 수 있는 예쁜 분홍색 꽃이다. 은은한 향기가 난다.',
+    source: '마을 꽃밭 및 산책로 수집'
+  },
+
+  shiny_shell: {
+    id: 'shiny_shell',
+    name: '반짝이는 조개',
+    type: ItemType.COLLECTIBLE,
+    categoryName: '수집품',
+    icon: '🐚',
+    imageType: 'shiny_shell',
+    stackable: true,
+    deliverable: true,
+    usableFor: ['quest', 'puzzle'],
+    puzzleTag: 'island_shell_puzzle',
+    description: '햇빛과 달빛을 받으면 영롱하게 빛나는 바닷가의 작은 조개껍데기다. 추후 이 섬의 다른 퀘스트나 숨겨진 퍼즐을 푸는 열쇠가 될지도 모른다.',
+    source: '폭시의 작은 부탁 퀘스트 완료 보상'
+  },
+
+  old_letter: {
+    id: 'old_letter',
+    name: '오래된 편지',
+    type: ItemType.COLLECTIBLE,
+    categoryName: '수집품',
+    icon: '✉️',
+    imageType: 'old_letter',
+    stackable: true,
+    deliverable: true,
+    description: '세월의 흔적이 담긴 봉투 안에 섬의 옛 이야기가 적혀 있는 편지다.',
+    source: '마을 미스터리 탐험 (추후 업데이트)'
+  },
+
+  mysterious_key: {
+    id: 'mysterious_key',
+    name: '수상한 열쇠',
+    type: ItemType.COLLECTIBLE,
+    categoryName: '수집품',
+    icon: '🗝️',
+    imageType: 'mysterious_key',
+    stackable: true,
+    deliverable: true,
+    description: '어딘가 잠긴 문을 열 수 있을 것 같은 묵직하고 오래된 황동 열쇠다.',
+    source: '숨겨진 장소 탐험 (추후 업데이트)'
+  },
+
+  island_clue: {
+    id: 'island_clue',
+    name: '섬의 비밀을 담은 단서',
+    type: ItemType.COLLECTIBLE,
+    categoryName: '수집품',
+    icon: '🔍',
+    imageType: 'island_clue',
+    stackable: true,
+    deliverable: true,
+    description: '등대와 섬의 과거에 얽힌 진실을 풀기 위한 중요한 기록 조각이다.',
+    source: '밤의 탐험 및 주민 대화 (추후 업데이트)'
+  },
+
   // 속삭이는 숲 탐험 전용 수집 아이템 2종
   forest_dew_mushroom: {
     id: 'forest_dew_mushroom',
@@ -193,6 +262,8 @@ export const ITEMS = {
     type: ItemType.COLLECTIBLE,
     categoryName: '수집품',
     icon: '🍄',
+    stackable: true,
+    deliverable: true,
     description: '속삭이는 숲 그늘진 고목 아래에서 아침 이슬을 듬뿍 머금고 자란 통통하고 사랑스러운 붉은 버섯입니다. 달콤한 숲 향기가 납니다.',
     source: '속삭이는 숲 탐험 채집'
   },
@@ -203,6 +274,8 @@ export const ITEMS = {
     type: ItemType.COLLECTIBLE,
     categoryName: '수집품',
     icon: '🌿',
+    stackable: true,
+    deliverable: true,
     description: '속삭이는 숲 맑은 시냇가 언덕에서 자라는 신선한 야생 허브입니다. 맑고 청량한 피톤치드 향이 주변에 은은하게 퍼집니다.',
     source: '속삭이는 숲 탐험 채집'
   }

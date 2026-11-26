@@ -202,17 +202,29 @@ export const NPC_DATA = {
           },
           day_quest_complete: {
             lines: [
-              '우와! 분홍색 꽃 3개를 모두 모아왔구나! 정말 고마워!',
-              '이건 내 고마운 마음을 담은 특별한 선물, 달빛 브로치야.\n밤에 이 섬을 걸을 때도 분명 도움이 될 거야!'
+              '우와! 정말 예쁜 꽃이야!\n이렇게 많이 모아주다니 정말 고마워!',
+              '고마운 마음을 담아 내가 아껴두던 반짝이는 조개를 선물로 줄게.\n분명 앞으로 이 섬의 비밀을 푸는 데 도움이 될 거야!'
             ],
-            next: null,
-            questHook: 'complete_fox_pink_flower'
+            next: null
           },
           day_quest_done: {
             lines: [
-              '네가 모아준 분홍색 꽃으로 만든 꽃다발, 친구가 정말 좋아했어!\n선물로 건넨 달빛 브로치는 마음에 들었니?'
+              '네가 전달해 준 분홍색 꽃으로 만든 꽃다발, 친구가 정말 좋아했어!\n선물로 건넨 반짝이는 조개는 가방에 잘 보관하고 있니?'
             ],
             next: null
+          },
+          day_quest_shortage: {
+            lines: [
+              '아직 분홍색 꽃이 부족해서 전달할 수 없어!\n마을 주변에서 분홍색 꽃 3개를 모두 모아서 다시 가져와 줘.'
+            ],
+            next: null
+          },
+          day_quest_deliver_prompt: {
+            lines: [
+              '정말 분홍색 꽃을 다 모아온 거야? 얼른 보여줘!'
+            ],
+            next: null,
+            questHook: 'request_fox_pink_flower_delivery'
           },
           day_lighthouse: {
             lines: [
@@ -333,50 +345,78 @@ export function resolveNpcDialogueTree(npcId, context = {}) {
       ? baseTree.repeatStartNode
       : baseTree.startNode;
 
-  // 폭시 낮 대화: 기존 분홍색 꽃 퀘스트 진행 상태와 선택지/대사 자연 연동
-  if (npcId === 'fox' && !isNight && context.foxQuestState) {
+  // 폭시 대화: 분홍색 꽃 수집·전달·보상 완료 상태와 선택지/대사 실시간 연동
+  if (npcId === 'fox' && context.foxQuestState) {
     const qState = context.foxQuestState;
-    const cur = context.foxCollectedCount ?? 0;
+    const cur = context.foxInventoryCount ?? context.foxCollectedCount ?? 0;
     const target = context.foxTargetCount ?? 3;
 
-    if (qState === QuestState.IN_PROGRESS) {
-      startNode = 'day_repeat';
-      nodes.day_repeat.lines = [
-        `분홍색 꽃을 찾고 있구나! (현재 모은 꽃: ${cur}/${target}개)\n다른 궁금한 이야기도 있니?`
-      ];
-      nodes.day_quest_status.lines = [
-        `아직 꽃이 조금 더 필요해! (현재 모은 꽃: ${cur}/${target}개)\n마을 정원 꽃밭과 산책로 주변을 살펴보면 금방 찾을 수 있을 거야.`
-      ];
+    if (!isNight) {
+      if (qState === QuestState.IN_PROGRESS) {
+        startNode = 'day_repeat';
+        nodes.day_repeat.lines = [
+          `분홍색 꽃을 찾고 있구나! (보유 중: ${cur}/${target}개)\n꽃 3개를 모두 모으면 나에게 전달해 줘!`
+        ];
+        if (nodes.day_repeat.choices?.[0]) {
+          nodes.day_repeat.choices[0].text = '부탁했던 꽃 이야기를 하자';
+          nodes.day_repeat.choices[0].next = 'day_quest_shortage';
+        }
+        nodes.day_quest_shortage.lines = [
+          `아직 분홍색 꽃이 부족해서 전달할 수 없어! (현재 보유: ${cur}/${target}개)\n마을 정원 꽃밭과 산책로 주변을 살펴보면 금방 찾을 수 있을 거야.`
+        ];
+      } else if (qState === QuestState.READY_TO_COMPLETE) {
+        startNode = 'day_repeat';
+        nodes.day_repeat.lines = [
+          '어! 분홍색 꽃 3개를 모두 모아온 거야?\n지금 나한테 전달해 줄래?'
+        ];
+        if (nodes.day_repeat.choices?.[0]) {
+          nodes.day_repeat.choices[0].text = '모은 꽃을 전달할게!';
+          nodes.day_repeat.choices[0].next = cur >= target ? 'day_quest_deliver_prompt' : 'day_quest_shortage';
+        }
+        nodes.day_quest_shortage.lines = [
+          `어라, 가방에 분홍색 꽃이 부족해서 전달할 수 없어! (필요: ${target}개, 보유: ${cur}개)`
+        ];
+      } else if (qState === QuestState.DELIVERED || qState === QuestState.COMPLETED) {
+        startNode = 'day_repeat';
+        if (!context.hasSeenFoxCompletion) {
+          nodes.day_repeat.lines = [
+            '우와! 정말 예쁜 꽃이야!\n이렇게 많이 모아주다니 정말 고마워!'
+          ];
+          nodes.day_repeat.questHook = 'ack_fox_completion';
+        } else {
+          nodes.day_repeat.lines = [
+            '네가 전달해 준 분홍색 꽃 덕분에 정말 멋진 꽃다발이 완성됐어!\n선물로 준 반짝이는 조개도 소중히 간직해 줘!'
+          ];
+        }
+        if (nodes.day_repeat.choices?.[0]) {
+          nodes.day_repeat.choices[0].text = '꽃다발과 조개 이야기 물어보기';
+          nodes.day_repeat.choices[0].next = 'day_quest_done';
+        }
+      } else if (qState === QuestState.NOT_STARTED && context.hasCompleted) {
+        if (nodes.day_repeat.choices?.[0]) {
+          nodes.day_repeat.choices[0].text = '무슨 부탁이야? (퀘스트)';
+          nodes.day_repeat.choices[0].next = 'day_quest_offer';
+        }
+      }
     } else if (qState === QuestState.READY_TO_COMPLETE) {
-      startNode = 'day_repeat';
-      nodes.day_repeat.lines = [
-        '어! 분홍색 꽃 3개를 모두 모아온 거야?\n지금 나한테 건네줄래?'
-      ];
-      if (nodes.day_repeat.choices?.[0]) {
-        nodes.day_repeat.choices[0].text = '분홍색 꽃 3개 전달하기 (퀘스트 완료)';
-        nodes.day_repeat.choices[0].next = 'day_quest_complete';
+      // 밤 시간대에도 꽃 3개를 모두 모은 상태라면 전달 선택지를 최상단에 노출
+      const activeStart = nodes[startNode];
+      if (activeStart && Array.isArray(activeStart.choices)) {
+        activeStart.choices.unshift({
+          id: 'fox_deliver_night',
+          text: '모은 꽃을 전달할게!',
+          next: cur >= target ? 'night_quest_deliver_prompt' : 'night_quest_shortage'
+        });
       }
-    } else if (qState === QuestState.COMPLETED) {
-      startNode = 'day_repeat';
-      if (!context.hasSeenFoxCompletion) {
-        nodes.day_repeat.lines = [
-          '와아! 분홍색 꽃을 전부 모아줬구나! 정말 고마워!\n덕분에 소중한 친구에게 줄 아주 예쁜 꽃다발을 만들 수 있겠어!'
-        ];
-        nodes.day_repeat.questHook = 'ack_fox_completion';
-      } else {
-        nodes.day_repeat.lines = [
-          '네가 모아준 분홍색 꽃 덕분에 정말 멋진 꽃다발이 완성됐어!\n오늘도 마을을 둘러보는 중이야?'
-        ];
-      }
-      if (nodes.day_repeat.choices?.[0]) {
-        nodes.day_repeat.choices[0].text = '꽃다발 이야기 물어보기';
-        nodes.day_repeat.choices[0].next = 'day_quest_done';
-      }
-    } else if (qState === QuestState.NOT_STARTED && context.hasCompleted) {
-      if (nodes.day_repeat.choices?.[0]) {
-        nodes.day_repeat.choices[0].text = '무슨 부탁이야? (퀘스트)';
-        nodes.day_repeat.choices[0].next = 'day_quest_offer';
-      }
+      nodes.night_quest_deliver_prompt = {
+        lines: ['어라, 이 밤중에 분홍색 꽃 3개를 다 모아온 거야? 얼른 보여줘!'],
+        next: null,
+        questHook: 'request_fox_pink_flower_delivery'
+      };
+      nodes.night_quest_shortage = {
+        lines: [`가방에 분홍색 꽃이 부족해서 전달할 수 없어! (필요: ${target}개, 보유: ${cur}개)`],
+        next: null
+      };
     }
   }
 

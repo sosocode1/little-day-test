@@ -1,4 +1,4 @@
-import { QuestState, QUEST_DATA, DIALOGUE_QUEST_HOOKS } from '../data/quest.js';
+import { QuestState, QUEST_DATA, QUEST_REGISTRY, DIALOGUE_QUEST_HOOKS } from '../data/quest.js';
 import { createQuestUI } from '../ui/questUI.js';
 
 export function createQuestSystem(inventorySystem = null) {
@@ -7,12 +7,13 @@ export function createQuestSystem(inventorySystem = null) {
   let collectedCount = 0;
   let collectedFlowerIds = new Set();
   let rewardClaimed = false;
+  let deliveredAt = null;
   const targetCount = QUEST_DATA.targetCount;
   const listeners = new Set();
 
   // NPC 대화 완료 상태, 밤 전용 단서 기록 및 추후 퀘스트 확장용 훅 레지스트리
-  let completedDialogues = new Set(); // 예: 'rabbit:day', 'rabbit:night', 'fox:day', 'fox:night'
-  let discoveredClues = new Set();    // 예: 'clue_rabbit_lighthouse', 'clue_fox_island_secret'
+  let completedDialogues = new Set();
+  let discoveredClues = new Set();
   let triggeredQuestHooks = new Set();
   const questHookHandlers = new Map();
 
@@ -24,11 +25,55 @@ export function createQuestSystem(inventorySystem = null) {
         targetCount,
         collectedFlowerIds: Array.from(collectedFlowerIds),
         rewardClaimed,
+        deliveredAt,
         completedDialogues: Array.from(completedDialogues),
         discoveredClues: Array.from(discoveredClues),
         triggeredQuestHooks: Array.from(triggeredQuestHooks)
       });
     }
+  }
+
+  function getQuestDef(questId = QUEST_DATA.id) {
+    return QUEST_REGISTRY[questId] || QUEST_DATA;
+  }
+
+  // 보상 아이템 안전 지급 (중복 지급 원천 차단)
+  function grantRewardsOnce(questDef) {
+    if (rewardClaimed) return [];
+
+    const granted = [];
+    const rewards = Array.isArray(questDef.rewards) && questDef.rewards.length > 0
+      ? questDef.rewards
+      : questDef.reward
+        ? [{ itemId: questDef.reward.id, count: questDef.reward.count || 1, ...questDef.reward }]
+        : [];
+
+    for (const r of rewards) {
+      const itemId = r.itemId || r.id;
+      const count = Math.max(1, Math.floor(Number(r.count) || 1));
+      const rewardSourceId = `quest_reward_${questDef.id}_${itemId}`;
+      if (inventorySystem && typeof inventorySystem.addItem === 'function') {
+        inventorySystem.addItem(itemId, count, { sourceId: rewardSourceId });
+      }
+      granted.push({ ...r, itemId, count });
+    }
+
+    rewardClaimed = true;
+    state = QuestState.COMPLETED;
+
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('littleday_quest_completed', '1');
+        localStorage.setItem('littleday_quest_reward_claimed', '1');
+        for (const r of granted) {
+          localStorage.setItem(`littleday_item_${r.itemId}`, String(inventorySystem?.getItemCount?.(r.itemId) || r.count));
+        }
+      }
+    } catch (e) {}
+
+    ui.updateQuestProgress(targetCount, targetCount, true, true, QuestState.COMPLETED);
+    notify();
+    return granted;
   }
 
   const system = {
@@ -45,20 +90,28 @@ export function createQuestSystem(inventorySystem = null) {
     isRewardClaimed() {
       return rewardClaimed;
     },
-    // 퀘스트 시작 (수락)
+    getInventoryCount(itemId = 'pink_flower') {
+      if (inventorySystem && typeof inventorySystem.getItemCount === 'function') {
+        return inventorySystem.getItemCount(itemId);
+      }
+      return collectedCount;
+    },
+
+    // 1 -> 2. 퀘스트 시작 (진행 전 -> 아이템 수집 중)
     startQuest() {
       if (state !== QuestState.NOT_STARTED) return false;
       state = QuestState.IN_PROGRESS;
       collectedCount = 0;
       collectedFlowerIds.clear();
       rewardClaimed = false;
-      ui.updateQuestProgress(collectedCount, targetCount, false, false);
+      ui.updateQuestProgress(collectedCount, targetCount, false, false, QuestState.IN_PROGRESS);
       ui.showPanel();
       ui.showToast('새 퀘스트 수락: 폭시의 작은 부탁', '🌸', 2600);
       notify();
       return true;
     },
-    // 꽃 수집
+
+    // 2 -> 3. 꽃 수집 (3개 수집 완료 시 '아이템 전달 가능' 상태로 전환)
     collectFlower(flower) {
       if (state !== QuestState.IN_PROGRESS) return false;
       if (flower.id && collectedFlowerIds.has(flower.id)) return false;
@@ -69,19 +122,96 @@ export function createQuestSystem(inventorySystem = null) {
       }
       collectedCount = Math.min(targetCount, collectedCount + 1);
 
-      // 꽃 수집 토스트 팝업 표시 (1/3, 2/3, 3/3)
-      ui.showCollectToast(collectedCount, targetCount);
-
-      // 꽃 3개를 모두 수집하면 퀘스트를 완료 상태로 변경
-      if (collectedCount >= targetCount) {
-        this.completeQuest();
-      } else {
-        ui.updateQuestProgress(collectedCount, targetCount, false, false);
-        notify();
+      // 인벤토리에 분홍색 꽃 자동 추가 (sourceId로 중복 추가 방지)
+      if (inventorySystem && typeof inventorySystem.addItem === 'function') {
+        const collectibleItemId = flower.type || 'pink_flower';
+        inventorySystem.addItem(collectibleItemId, 1, { sourceId: flower.id || null });
       }
+
+      if (collectedCount >= targetCount) {
+        state = QuestState.READY_TO_COMPLETE;
+        ui.updateQuestProgress(targetCount, targetCount, true, false, QuestState.READY_TO_COMPLETE);
+        ui.showToast('분홍색 꽃 3개 수집 완료! 폭시에게 전달해 보세요! 🌸', '✨', 3000);
+      } else {
+        ui.showCollectToast(collectedCount, targetCount);
+        ui.updateQuestProgress(collectedCount, targetCount, false, false, QuestState.IN_PROGRESS);
+      }
+
+      notify();
       return true;
     },
-    // 퀘스트 완료 및 보상 지급
+
+    // 확장 가능한 요구 아이템 보유 수량 검증
+    getRequirementStatus(questId = QUEST_DATA.id) {
+      const questDef = getQuestDef(questId);
+      const reqList = Array.isArray(questDef.requirements) ? questDef.requirements : [];
+      const evaluated = reqList.map((req) => {
+        const owned = this.getInventoryCount(req.itemId);
+        return {
+          ...req,
+          owned,
+          satisfied: owned >= req.count
+        };
+      });
+      const missing = evaluated.filter((r) => !r.satisfied);
+      return {
+        quest: questDef,
+        canDeliver:
+          state === QuestState.READY_TO_COMPLETE &&
+          !rewardClaimed &&
+          missing.length === 0,
+        requirements: evaluated,
+        missing
+      };
+    },
+
+    // 3 -> 4 -> 5. NPC 아이템 전달 실행: 보유 검증 → 인벤토리 차감 → 전달 완료 → 보상 1회 지급 완료
+    deliverQuestItems(questId = QUEST_DATA.id) {
+      const questDef = getQuestDef(questId);
+
+      if (state === QuestState.DELIVERED || state === QuestState.COMPLETED || rewardClaimed) {
+        return { ok: false, reason: 'already_completed', quest: questDef };
+      }
+
+      const status = this.getRequirementStatus(questId);
+      if (status.missing.length > 0) {
+        return { ok: false, reason: 'insufficient_items', quest: questDef, missing: status.missing };
+      }
+      if (state !== QuestState.READY_TO_COMPLETE) {
+        return { ok: false, reason: 'invalid_state', quest: questDef };
+      }
+
+      // 1) 인벤토리에서 요구 아이템 차감 (NPC 전달 인터페이스 재사용)
+      for (const req of status.requirements) {
+        if (inventorySystem && typeof inventorySystem.deliverItemToNpc === 'function') {
+          const ok = inventorySystem.deliverItemToNpc(questDef.deliveryNpcId, req.itemId, req.count, {
+            consume: true
+          });
+          if (!ok) {
+            return { ok: false, reason: 'insufficient_items', quest: questDef, missing: [req] };
+          }
+        }
+      }
+
+      // 2) 상태: 전달 완료 (DELIVERED)
+      state = QuestState.DELIVERED;
+      deliveredAt = Date.now();
+      completedDialogues.add('fox:quest_complete');
+      ui.updateQuestProgress(targetCount, targetCount, true, false, QuestState.DELIVERED);
+      notify();
+
+      // 3) 보상 지급 (반짝이는 조개 1개, 중복 지급 원천 차단) -> 보상 지급 완료 (COMPLETED)
+      const rewards = grantRewardsOnce(questDef);
+
+      return {
+        ok: true,
+        quest: questDef,
+        delivered: status.requirements,
+        rewards
+      };
+    },
+
+    // 기존 completeQuest 호출 하위 호환 (중복 지급 방지 유지)
     completeQuest(playerCharacter = null, onDone = null) {
       if (state === QuestState.COMPLETED && rewardClaimed) {
         return false;
@@ -89,43 +219,35 @@ export function createQuestSystem(inventorySystem = null) {
       if (
         state !== QuestState.IN_PROGRESS &&
         state !== QuestState.READY_TO_COMPLETE &&
+        state !== QuestState.DELIVERED &&
         state !== QuestState.COMPLETED
       ) {
         return false;
       }
 
-      state = QuestState.COMPLETED;
-      collectedCount = targetCount;
-      ui.updateQuestProgress(targetCount, targetCount, true, true);
-      ui.showToast('퀘스트 완료! 폭시에게 말을 걸어보세요! 🎉', '✨', 3200);
-
-      if (!rewardClaimed) {
-        rewardClaimed = true;
-        if (inventorySystem && typeof inventorySystem.addItem === 'function') {
-          inventorySystem.addItem(QUEST_DATA.reward);
+      const questDef = getQuestDef(QUEST_DATA.id);
+      const granted = grantRewardsOnce(questDef);
+      const mainReward = granted[0] || questDef.reward;
+      ui.showRewardModal(
+        {
+          title: questDef.title,
+          subtitle: '폭시에게 분홍색 꽃 3개를 전달했습니다!',
+          ...mainReward
+        },
+        () => {
+          if (onDone) onDone();
         }
-        try {
-          if (typeof localStorage !== 'undefined') {
-            localStorage.setItem('littleday_item_moonlight_brooch', '1');
-            localStorage.setItem('littleday_quest_completed', '1');
-            localStorage.setItem('littleday_quest_reward_claimed', '1');
-          }
-        } catch (e) {}
-      }
-
-      notify();
-
-      ui.showRewardModal(QUEST_DATA.reward, () => {
-        if (onDone) onDone();
-      });
+      );
       return true;
     },
-    // 폭시 전용 대사 배열 동적 생성 (기존 API 하위 호환 유지)
+
+    // 폭시 전용 대사 배열 동적 생성 (하위 호환 유지)
     getFoxDialogues() {
+      const currentFlowers = this.getInventoryCount('pink_flower');
       if (state === QuestState.NOT_STARTED) {
         return QUEST_DATA.dialogues.not_started;
       } else if (state === QuestState.IN_PROGRESS) {
-        return QUEST_DATA.dialogues.in_progress(collectedCount, targetCount);
+        return QUEST_DATA.dialogues.in_progress(currentFlowers, targetCount);
       } else if (state === QuestState.READY_TO_COMPLETE) {
         return QUEST_DATA.dialogues.ready_to_complete;
       } else {
@@ -153,12 +275,10 @@ export function createQuestSystem(inventorySystem = null) {
     getTriggeredQuestHooks() {
       return Array.from(triggeredQuestHooks);
     },
-    // 추후 퀘스트 확장을 위한 훅 등록 인터페이스
     registerQuestHook(hookId, handler) {
       if (!hookId || typeof handler !== 'function') return;
       questHookHandlers.set(hookId, handler);
     },
-    // 대화 완료 시 호출: 완료 상태 저장 + 밤 단서 기록 + 퀘스트 훅 실행
     onNpcDialogueCompleted(npcId, result = {}, context = {}) {
       if (!npcId) return;
       const period = result.period || (context.isNight ? 'night' : 'day');
@@ -170,7 +290,6 @@ export function createQuestSystem(inventorySystem = null) {
         changed = true;
       }
 
-      // 밤 전용 단서 등 새로운 단서 수집 기록
       const clues = Array.isArray(result.discoveredClues) ? result.discoveredClues : [];
       for (const clue of clues) {
         if (clue && clue.id && !discoveredClues.has(clue.id)) {
@@ -182,7 +301,6 @@ export function createQuestSystem(inventorySystem = null) {
         }
       }
 
-      // 선택지로 발동된 퀘스트 훅 실행
       const hooks = Array.isArray(result.triggeredQuestHooks) ? result.triggeredQuestHooks : [];
       for (const hookId of hooks) {
         if (!hookId) continue;
@@ -192,7 +310,7 @@ export function createQuestSystem(inventorySystem = null) {
         }
         const handler = questHookHandlers.get(hookId);
         if (typeof handler === 'function') {
-          handler({ npcId, period, result, player: context.player });
+          handler({ npcId, period, result, player: context.player, npc: context.npc });
         }
       }
 
@@ -202,26 +320,22 @@ export function createQuestSystem(inventorySystem = null) {
     },
     // NPC 머리 위 말풍선 상태 결정 ('quest' | 'night' | 'talk')
     getNpcIndicatorType(npcId, isNight = false) {
+      if (npcId === 'fox' && state === QuestState.READY_TO_COMPLETE) {
+        return 'quest';
+      }
       if (isNight) {
         return !completedDialogues.has(`${npcId}:night`) ? 'night' : 'talk';
       }
-      if (
-        npcId === 'fox' &&
-        (state === QuestState.NOT_STARTED ||
-          state === QuestState.READY_TO_COMPLETE ||
-          (state === QuestState.COMPLETED && !completedDialogues.has('fox:quest_complete')))
-      ) {
+      if (npcId === 'fox' && state === QuestState.NOT_STARTED) {
         return 'quest';
       }
       return 'talk';
     },
 
-    // 상태 변경 구독
     onStateChange(callback) {
       listeners.add(callback);
       return () => listeners.delete(callback);
     },
-    // 저장 데이터 추출
     getStateData() {
       return {
         id: QUEST_DATA.id,
@@ -229,12 +343,12 @@ export function createQuestSystem(inventorySystem = null) {
         collectedCount,
         collectedFlowerIds: Array.from(collectedFlowerIds),
         rewardClaimed: Boolean(rewardClaimed || state === QuestState.COMPLETED),
+        deliveredAt,
         completedDialogues: Array.from(completedDialogues),
         discoveredClues: Array.from(discoveredClues),
         triggeredQuestHooks: Array.from(triggeredQuestHooks)
       };
     },
-    // 세이브 데이터로부터 복원
     restore(savedData) {
       if (!savedData) return;
 
@@ -242,13 +356,11 @@ export function createQuestSystem(inventorySystem = null) {
         state = savedData.state;
         collectedCount = Math.max(0, Math.min(targetCount, Number(savedData.collectedCount) || 0));
         collectedFlowerIds = new Set(Array.isArray(savedData.collectedFlowerIds) ? savedData.collectedFlowerIds : []);
+        deliveredAt = savedData.deliveredAt || null;
         rewardClaimed = Boolean(
           savedData.rewardClaimed ||
           state === QuestState.COMPLETED ||
-          (typeof localStorage !== 'undefined' && (
-            localStorage.getItem('littleday_quest_reward_claimed') === '1' ||
-            localStorage.getItem('littleday_item_moonlight_brooch') === '1'
-          ))
+          (typeof localStorage !== 'undefined' && localStorage.getItem('littleday_quest_reward_claimed') === '1')
         );
 
         if (collectedCount > 0 && collectedFlowerIds.size === 0) {
@@ -257,14 +369,23 @@ export function createQuestSystem(inventorySystem = null) {
           }
         }
 
+        // 전달 완료 직후 중단된 저장 데이터가 있다면 안전하게 보상 1회 지급 후 완료 처리
+        if (state === QuestState.DELIVERED && !rewardClaimed) {
+          grantRewardsOnce(QUEST_DATA);
+        }
+
         if (state === QuestState.IN_PROGRESS) {
-          ui.updateQuestProgress(collectedCount, targetCount, false, false);
+          ui.updateQuestProgress(collectedCount, targetCount, false, false, QuestState.IN_PROGRESS);
           ui.showPanel();
         } else if (state === QuestState.READY_TO_COMPLETE) {
-          ui.updateQuestProgress(collectedCount, targetCount, true, false);
+          ui.updateQuestProgress(collectedCount, targetCount, true, false, QuestState.READY_TO_COMPLETE);
+          ui.showPanel();
+        } else if (state === QuestState.DELIVERED) {
+          ui.updateQuestProgress(targetCount, targetCount, true, false, QuestState.DELIVERED);
           ui.showPanel();
         } else if (state === QuestState.COMPLETED) {
-          ui.updateQuestProgress(targetCount, targetCount, true, true);
+          ui.updateQuestProgress(targetCount, targetCount, true, true, QuestState.COMPLETED);
+          ui.showPanel();
         }
       }
 
@@ -288,15 +409,10 @@ export function createQuestSystem(inventorySystem = null) {
     }
   };
 
-  // 기본 내장 퀘스트 훅 바인딩 (기존 폭시 꽃 퀘스트와 자연 연동)
+  // 기본 내장 퀘스트 훅 바인딩
   system.registerQuestHook(DIALOGUE_QUEST_HOOKS.START_FOX_FLOWER, () => {
     if (state === QuestState.NOT_STARTED) {
       system.startQuest();
-    }
-  });
-  system.registerQuestHook(DIALOGUE_QUEST_HOOKS.COMPLETE_FOX_FLOWER, ({ player }) => {
-    if (state === QuestState.READY_TO_COMPLETE) {
-      system.completeQuest(player);
     }
   });
   system.registerQuestHook('ack_fox_completion', () => {

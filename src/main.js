@@ -6,6 +6,7 @@ import { createPlayer, updatePlayer } from './character/player.js';
 import { createInput } from './systems/input.js';
 import { createInteractionSystem } from './systems/interaction.js';
 import { createFlowerManager } from './world/collectibleFlower.js';
+import { createDeliveryEffectManager } from './world/deliveryEffect.js';
 import { createQuestSystem } from './systems/quest.js';
 import { createInventorySystem } from './systems/inventory.js';
 import { createInventoryUI } from './ui/inventoryUI.js';
@@ -73,6 +74,7 @@ const wardrobeUI = createWardrobeUI(inventorySystem);
 const vanityUI = createVanityUI(player);
 const welcomeGuideUI = createWelcomeGuideUI();
 const flowerManager = createFlowerManager(scene);
+const deliveryEffect = createDeliveryEffectManager(scene);
 questSystem = createQuestSystem(inventorySystem);
 
 // 월드맵 UI 생성 (단축키 M 및 우측 상단 플로팅 버튼)
@@ -147,6 +149,10 @@ const interaction = createInteractionSystem(
   saveSystem
 );
 interaction.setCamera(camera);
+interaction.setDeliveryEffect(deliveryEffect);
+if (typeof inventoryUI.setCanOpenPredicate === 'function') {
+  inventoryUI.setCanOpenPredicate(() => !interaction.isInteracting());
+}
 
 let last = performance.now();
 renderer.setAnimationLoop((time) => {

@@ -3,7 +3,7 @@ export function createQuestUI() {
   // 기존 잔존 요소 정리 (HMR 등 중복 방지)
   const existingStyle = document.getElementById('little-day-quest-style');
   if (existingStyle) existingStyle.remove();
-  document.querySelectorAll('.quest-panel, .collect-toast, .reward-modal-backdrop').forEach((el) => el.remove());
+  document.querySelectorAll('.quest-panel, .collect-toast, .reward-modal-backdrop, .delivery-modal-backdrop').forEach((el) => el.remove());
 
   // 스타일 주입
   const style = document.createElement('style');
@@ -371,6 +371,163 @@ export function createQuestUI() {
       transform: translateY(1px);
       box-shadow: 0 3px 8px rgba(240, 110, 148, 0.3);
     }
+
+    /* 아이템 전달 확인 클레이 모달 */
+    .delivery-modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(52, 34, 42, 0.45);
+      backdrop-filter: blur(5px);
+      -webkit-backdrop-filter: blur(5px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 320;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 0.24s ease, visibility 0.24s ease;
+      font-family: "Pretendard", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
+      user-select: none;
+    }
+    .delivery-modal-backdrop.open {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+    }
+    .delivery-card {
+      width: min(92vw, 430px);
+      background: linear-gradient(180deg, #fffdf9 0%, #fff6ef 100%);
+      border-radius: 30px;
+      padding: 26px 24px 22px;
+      border: 3.5px solid #f4cfb8;
+      box-shadow:
+        0 24px 56px rgba(135, 84, 78, 0.34),
+        inset 0 4px 10px rgba(255, 255, 255, 0.94),
+        inset 0 -5px 12px rgba(235, 192, 168, 0.34);
+      text-align: center;
+      transform: scale(0.9) translateY(14px);
+      transition: transform 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+      color: #4f362f;
+    }
+    .delivery-modal-backdrop.open .delivery-card {
+      transform: scale(1) translateY(0);
+    }
+    .delivery-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 14px;
+      border-radius: 999px;
+      background: #ffe8ef;
+      border: 1.5px solid #ffc6d8;
+      color: #9e4564;
+      font-size: 12px;
+      font-weight: 900;
+      margin-bottom: 10px;
+    }
+    .delivery-title {
+      font-size: 19px;
+      font-weight: 900;
+      color: #6b3640;
+      margin-bottom: 4px;
+    }
+    .delivery-subtitle {
+      font-size: 13px;
+      font-weight: 600;
+      color: #9a6d62;
+      margin-bottom: 16px;
+    }
+    .delivery-items-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .delivery-item-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px 14px;
+      border-radius: 18px;
+      background: #ffffff;
+      border: 2px solid #f5d8c8;
+      box-shadow: 0 4px 12px rgba(175, 120, 108, 0.1);
+    }
+    .delivery-item-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 800;
+      font-size: 14.5px;
+      color: #5b3b34;
+    }
+    .delivery-item-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #fff0f5, #ffe2ec);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+    }
+    .delivery-item-qty {
+      font-size: 12.5px;
+      font-weight: 900;
+      color: #2c7a4c;
+      background: #e3f7eb;
+      border: 1px solid #bde6ce;
+      padding: 4px 10px;
+      border-radius: 999px;
+    }
+    .delivery-reward-preview {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      padding: 9px 14px;
+      border-radius: 16px;
+      background: linear-gradient(180deg, #f3f9ff 0%, #e7f3ff 100%);
+      border: 1.5px dashed #b4d5f7;
+      font-size: 12.5px;
+      font-weight: 800;
+      color: #3a5c8a;
+      margin-bottom: 18px;
+    }
+    .delivery-actions {
+      display: flex;
+      gap: 10px;
+    }
+    .delivery-btn {
+      flex: 1;
+      padding: 11px 16px;
+      border-radius: 999px;
+      font-family: inherit;
+      font-size: 14.5px;
+      font-weight: 900;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+    }
+    .delivery-btn-cancel {
+      background: #f6e7e0;
+      border: 2px solid #e8cfc2;
+      color: #84594c;
+    }
+    .delivery-btn-cancel:hover {
+      background: #efdbd2;
+    }
+    .delivery-btn-confirm {
+      background: linear-gradient(135deg, #ff8fad 0%, #ff6e94 100%);
+      border: 2px solid #ffccd9;
+      color: #ffffff;
+      box-shadow: 0 6px 16px rgba(240, 110, 148, 0.36);
+    }
+    .delivery-btn-confirm:hover {
+      transform: translateY(-1.5px);
+      box-shadow: 0 8px 20px rgba(240, 110, 148, 0.46);
+    }
   `;
   document.head.appendChild(style);
 
@@ -418,17 +575,17 @@ export function createQuestUI() {
         <span class="reward-badge-sparkle">✨</span>
       </div>
       <div class="reward-header">폭시의 작은 부탁</div>
-      <div class="reward-subheader">분홍색 꽃 3개를 모두 모았습니다!</div>
+      <div class="reward-subheader">폭시에게 분홍색 꽃 3개를 전달했습니다!</div>
       <div class="reward-item-box">
-        <div class="reward-icon-circle">🌙</div>
+        <div class="reward-icon-circle">🐚</div>
         <div class="reward-name-row">
-          <span class="reward-name">달빛 브로치</span>
+          <span class="reward-name">반짝이는 조개</span>
           <span class="reward-count-pill">+ 1개 획득</span>
         </div>
-        <div class="reward-desc">은은한 달빛의 마법이 깃든 신비롭고 영롱한 수제 클레이 브로치입니다.</div>
+        <div class="reward-desc">햇빛과 달빛을 받으면 영롱하게 빛나는 바닷가의 작은 조개껍데기다.</div>
         <div class="reward-inventory-hint">
           <span>🎒</span>
-          <span>아이템 보관함 [I] 키에서 확인하실 수 있습니다</span>
+          <span>내 가방 [I] 키에서 보상 아이템 상세 정보를 확인하세요</span>
         </div>
       </div>
       <button class="reward-confirm-btn">보상 받기</button>
@@ -436,6 +593,54 @@ export function createQuestUI() {
   `;
   document.body.appendChild(modalBackdrop);
   const rewardConfirmBtn = modalBackdrop.querySelector('.reward-confirm-btn');
+
+  // 4. 아이템 전달 확인 모달 DOM (확장 가능한 NPC 전달 확인창)
+  const deliveryBackdrop = document.createElement('div');
+  deliveryBackdrop.className = 'delivery-modal-backdrop';
+  deliveryBackdrop.innerHTML = `
+    <div class="delivery-card" role="dialog" aria-modal="true" aria-label="아이템 전달 확인">
+      <div class="delivery-badge"><span>🌸</span><span>아이템 전달 확인</span></div>
+      <div class="delivery-title">폭시에게 꽃을 전달할까요?</div>
+      <div class="delivery-subtitle">전달하면 가방에서 해당 수량만큼 차감됩니다.</div>
+      <div class="delivery-items-list"></div>
+      <div class="delivery-reward-preview"></div>
+      <div class="delivery-actions">
+        <button type="button" class="delivery-btn delivery-btn-cancel">취소</button>
+        <button type="button" class="delivery-btn delivery-btn-confirm">전달하기 ✨</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(deliveryBackdrop);
+  const deliveryTitleEl = deliveryBackdrop.querySelector('.delivery-title');
+  const deliverySubtitleEl = deliveryBackdrop.querySelector('.delivery-subtitle');
+  const deliveryListEl = deliveryBackdrop.querySelector('.delivery-items-list');
+  const deliveryRewardEl = deliveryBackdrop.querySelector('.delivery-reward-preview');
+  const deliveryCancelBtn = deliveryBackdrop.querySelector('.delivery-btn-cancel');
+  const deliveryConfirmBtn = deliveryBackdrop.querySelector('.delivery-btn-confirm');
+
+  let onDeliveryConfirm = null;
+  let onDeliveryCancel = null;
+
+  function closeDelivery(confirmed = false) {
+    if (!deliveryBackdrop.classList.contains('open')) return;
+    deliveryBackdrop.classList.remove('open');
+    const confirmCb = onDeliveryConfirm;
+    const cancelCb = onDeliveryCancel;
+    onDeliveryConfirm = null;
+    onDeliveryCancel = null;
+    if (confirmed) {
+      if (typeof confirmCb === 'function') confirmCb();
+    } else {
+      if (typeof cancelCb === 'function') cancelCb();
+    }
+  }
+
+  deliveryCancelBtn.addEventListener('click', () => closeDelivery(false));
+  deliveryConfirmBtn.addEventListener('click', () => closeDelivery(true));
+  deliveryBackdrop.addEventListener('pointerdown', (e) => e.stopPropagation());
+  deliveryBackdrop.addEventListener('click', (e) => {
+    if (e.target === deliveryBackdrop) closeDelivery(false);
+  });
 
   let onRewardClose = null;
   function closeReward() {
@@ -446,17 +651,39 @@ export function createQuestUI() {
     }
   }
   rewardConfirmBtn.addEventListener('click', closeReward);
+  modalBackdrop.addEventListener('pointerdown', (e) => e.stopPropagation());
   modalBackdrop.addEventListener('click', (e) => {
     if (e.target === modalBackdrop) closeReward();
   });
 
-  // 단축키 (Esc / Enter / Space)로 팝업 닫기 지원
-  window.addEventListener('keydown', (e) => {
-    if (modalBackdrop.classList.contains('open') && (e.code === 'Escape' || e.code === 'Enter' || e.code === 'Space')) {
-      e.preventDefault();
-      closeReward();
-    }
-  });
+  // 단축키 (Esc / Enter / Space) 지원 (전달 확인 모달 및 보상 모달)
+  window.addEventListener(
+    'keydown',
+    (e) => {
+      if (deliveryBackdrop.classList.contains('open')) {
+        if (e.code === 'Escape') {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          closeDelivery(false);
+          return;
+        }
+        if (e.code === 'Enter' || e.code === 'Space') {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          closeDelivery(true);
+          return;
+        }
+        return;
+      }
+
+      if (modalBackdrop.classList.contains('open') && (e.code === 'Escape' || e.code === 'Enter' || e.code === 'Space')) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        closeReward();
+      }
+    },
+    true
+  );
 
   return {
     showPanel() {
@@ -465,28 +692,33 @@ export function createQuestUI() {
     hidePanel() {
       panelEl.classList.remove('visible');
     },
-    // 퀘스트 진행 상태 업데이트
-    updateQuestProgress(current, target, isReady, isCompleted) {
+    // 퀘스트 진행 상태 업데이트 (5단계 상태 표시 지원)
+    updateQuestProgress(current, target, isReady, isCompleted, stateOverride = null) {
       this.showPanel();
       const pct = Math.min(100, (current / target) * 100);
       fillEl.style.width = `${pct}%`;
       countEl.textContent = `${current}/${target}`;
 
       panelEl.classList.remove('pulse');
-      // 리플로우 트리거로 연속 수집 시에도 매번 부드러운 갱신 펄스 재생
       void panelEl.offsetWidth;
 
-      if (isCompleted) {
+      if (isCompleted || stateOverride === 'COMPLETED') {
         badgeEl.textContent = '완료됨';
         badgeEl.className = 'quest-badge complete';
-        goalEl.textContent = '분홍색 꽃 3개 수집 완료!';
-        hintEl.textContent = '폭시에게 말을 걸어보세요 ✨';
+        goalEl.textContent = '폭시에게 꽃 전달 완료!';
+        hintEl.textContent = '반짝이는 조개 획득 ✨';
         panelEl.classList.add('completed-celebrate');
-      } else if (isReady) {
-        badgeEl.textContent = '목표 달성';
+      } else if (stateOverride === 'DELIVERED') {
+        badgeEl.textContent = '전달 완료';
+        badgeEl.className = 'quest-badge complete';
+        goalEl.textContent = '폭시에게 꽃 전달 완료!';
+        hintEl.textContent = '보상을 받는 중... ✨';
+        panelEl.classList.add('pulse');
+      } else if (isReady || stateOverride === 'READY_TO_COMPLETE') {
+        badgeEl.textContent = '전달 가능';
         badgeEl.className = 'quest-badge complete';
         goalEl.textContent = '폭시에게 꽃 전달하기';
-        hintEl.textContent = '폭시에게 돌아가세요!';
+        hintEl.textContent = '폭시에게 돌아가 전달하세요!';
         panelEl.classList.remove('completed-celebrate');
         panelEl.classList.add('pulse');
       } else {
@@ -500,6 +732,43 @@ export function createQuestUI() {
         }
       }
     },
+    // NPC 아이템 전달 확인창 표시
+    showDeliveryConfirmModal(options = {}, onConfirm = null, onCancel = null) {
+      onDeliveryConfirm = onConfirm;
+      onDeliveryCancel = onCancel;
+      deliveryTitleEl.textContent = options.title || `${options.npcName || '폭시'}에게 아이템을 전달할까요?`;
+      deliverySubtitleEl.textContent = options.subtitle || '전달 완료 시 내 가방에서 해당 아이템이 차감됩니다.';
+
+      const reqs = Array.isArray(options.requirements) ? options.requirements : [];
+      deliveryListEl.innerHTML = reqs
+        .map(
+          (req) => `
+          <div class="delivery-item-row">
+            <div class="delivery-item-left">
+              <span class="delivery-item-icon">${req.icon || '🌸'}</span>
+              <span>${req.name}</span>
+            </div>
+            <span class="delivery-item-qty">보유 ${req.owned}개 / 전달 ${req.count}개</span>
+          </div>
+        `
+        )
+        .join('');
+
+      const rewards = Array.isArray(options.rewards) ? options.rewards : [];
+      if (rewards.length > 0) {
+        const rewardText = rewards.map((r) => `${r.icon || '🎁'} ${r.name} × ${r.count || 1}`).join(', ');
+        deliveryRewardEl.innerHTML = `<span>🎁 완료 보상:</span> <span>${rewardText}</span>`;
+        deliveryRewardEl.style.display = 'flex';
+      } else {
+        deliveryRewardEl.style.display = 'none';
+      }
+
+      deliveryBackdrop.classList.add('open');
+    },
+    isDeliveryModalOpen() {
+      return deliveryBackdrop.classList.contains('open');
+    },
+    closeDeliveryModal: () => closeDelivery(false),
     // 범용 토스트 알림 팝업
     showToast(message, icon = '✨', duration = 2400) {
       if (toastTimer) clearTimeout(toastTimer);
@@ -517,9 +786,13 @@ export function createQuestUI() {
     showRewardModal(reward, onClose = null) {
       onRewardClose = onClose;
       if (reward) {
+        if (reward.title) modalBackdrop.querySelector('.reward-header').textContent = reward.title;
+        if (reward.subtitle) modalBackdrop.querySelector('.reward-subheader').textContent = reward.subtitle;
         if (reward.name) modalBackdrop.querySelector('.reward-name').textContent = reward.name;
         if (reward.description) modalBackdrop.querySelector('.reward-desc').textContent = reward.description;
         if (reward.icon) modalBackdrop.querySelector('.reward-icon-circle').textContent = reward.icon;
+        const countPill = modalBackdrop.querySelector('.reward-count-pill');
+        if (countPill) countPill.textContent = `+ ${reward.count || 1}개 획득`;
       }
       modalBackdrop.classList.add('open');
     },

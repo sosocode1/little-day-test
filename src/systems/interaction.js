@@ -1,7 +1,7 @@
 import { createDialogueUI } from '../ui/dialogueUI.js';
 import { createNpcOverheadUI } from '../ui/npcOverheadUI.js';
 import { resolveNpcDialogueTree } from '../data/dialogue.js';
-import { QuestState } from '../data/quest.js';
+import { QuestState, QUEST_DATA, DIALOGUE_QUEST_HOOKS } from '../data/quest.js';
 
 export function createInteractionSystem(
   npcs = [],
@@ -26,6 +26,7 @@ export function createInteractionSystem(
   const ui = createDialogueUI();
   const overheadUI = createNpcOverheadUI();
   let camera = null;
+  let deliveryEffect = null;
   let activeNpc = null;
   let cooldownTimer = 0;
   let promptTapRequested = false;
@@ -33,6 +34,102 @@ export function createInteractionSystem(
   ui.onPromptTap(() => {
     promptTapRequested = true;
   });
+
+  // 폭시에게 분홍색 꽃 전달 확인창 → 차감 → 3D 연출 → 기쁨 대사 → 보상 모달 파이프라인
+  function triggerQuestItemDelivery(questId, targetNpc) {
+    if (!questSystem || !targetNpc) return;
+
+    const status =
+      typeof questSystem.getRequirementStatus === 'function'
+        ? questSystem.getRequirementStatus(questId)
+        : null;
+
+    if (!status) return;
+
+    if (status.missing.length > 0) {
+      const firstMissing = status.missing[0];
+      questSystem.ui.showToast(
+        `${firstMissing.name}이(가) 부족해서 전달할 수 없어요! (보유: ${firstMissing.owned}/${firstMissing.count}개)`,
+        '⚠️',
+        2800
+      );
+      return;
+    }
+
+    if (!status.canDeliver) return;
+
+    const questDef = status.quest || QUEST_DATA;
+    const npcDisplayName = targetNpc.data?.displayName || targetNpc.data?.name || '폭시';
+
+    questSystem.ui.showDeliveryConfirmModal(
+      {
+        npcName: npcDisplayName,
+        title: `${npcDisplayName}에게 꽃을 전달할까요?`,
+        subtitle: '전달하면 내 가방에서 분홍색 꽃 3개가 차감되고 보상을 받습니다.',
+        requirements: status.requirements,
+        rewards: questDef.rewards
+      },
+      () => {
+        // 전달 확정!
+        const res = questSystem.deliverQuestItems(questId);
+        if (!res || !res.ok) {
+          if (res?.reason === 'insufficient_items') {
+            questSystem.ui.showToast('분홍색 꽃이 부족해서 전달할 수 없어요!', '⚠️', 2600);
+          }
+          return;
+        }
+
+        if (saveSystem && typeof saveSystem.save === 'function') {
+          saveSystem.save(true);
+        }
+
+        // 1) 3D 꽃 전달 연출 + 폭시 기쁨 반응 + 꽃잎/반짝임 파티클
+        if (deliveryEffect && typeof deliveryEffect.playItemDelivery === 'function') {
+          deliveryEffect.playItemDelivery(player, targetNpc);
+        } else if (typeof targetNpc.playJoyReaction === 'function') {
+          targetNpc.playJoyReaction(2.2);
+        }
+
+        questSystem.ui.showToast('폭시에게 분홍색 꽃 3개를 전달했습니다! 🌸✨', '🌸', 2600);
+
+        // 2) 폭시의 기쁨 감사 대사 출력 → 대화 종료 시 보상 획득 모달 표시
+        const isNightNow = Boolean(timeSystem && typeof timeSystem.isNight === 'function' && timeSystem.isNight());
+        const mainReward = (res.rewards && res.rewards[0]) || questDef.reward;
+        activeNpc = targetNpc;
+        ui.hidePrompt();
+        overheadUI.hideAll();
+        ui.openDialogue(
+          targetNpc,
+          () => {
+            activeNpc = null;
+            cooldownTimer = 0.35;
+            questSystem.ui.showRewardModal({
+              title: questDef.title,
+              subtitle: '폭시에게 분홍색 꽃 3개를 전달했습니다!',
+              ...mainReward
+            });
+          },
+          {
+            isNight: isNightNow,
+            customLines: [
+              '우와! 정말 예쁜 꽃이야!\n이렇게 많이 모아주다니 정말 고마워!',
+              '고마운 마음을 담아 내가 아껴두던 반짝이는 조개를 선물로 줄게.\n분명 앞으로 이 섬의 비밀을 푸는 데 도움이 될 거야!'
+            ]
+          }
+        );
+      },
+      () => {
+        cooldownTimer = 0.25;
+      }
+    );
+  }
+
+  if (questSystem && typeof questSystem.registerQuestHook === 'function') {
+    questSystem.registerQuestHook(DIALOGUE_QUEST_HOOKS.REQUEST_FOX_FLOWER_DELIVERY, ({ npc }) => {
+      const foxNpc = npc || npcs.find((n) => n && (n.id === 'fox' || n.type === 'fox'));
+      triggerQuestItemDelivery(QUEST_DATA.id, foxNpc);
+    });
+  }
 
   return {
     ui,
@@ -51,16 +148,20 @@ export function createInteractionSystem(
     setCamera(cam) {
       camera = cam;
     },
+    setDeliveryEffect(effectMgr) {
+      deliveryEffect = effectMgr;
+    },
     setTimeSystem(ts) {
       timeSystem = ts;
     },
     setSaveSystem(ss) {
       saveSystem = ss;
     },
-    // 대화창, 보상 모달, 보관함, 옷장, 화장대, 환영 가이드, 월드맵 또는 공간 전환 중인지 여부 (플레이어 이동 잠금용)
+    // 대화창, 전달 확인창, 보상 모달, 보관함, 옷장, 화장대, 환영 가이드, 월드맵 또는 공간 전환 중인지 여부 (플레이어 이동 잠금용)
     isInteracting() {
       return (
         ui.isOpen() ||
+        (questSystem && questSystem.ui.isDeliveryModalOpen && questSystem.ui.isDeliveryModalOpen()) ||
         (questSystem && questSystem.ui.isRewardModalOpen()) ||
         (inventoryUI && inventoryUI.isOpen()) ||
         (wardrobeUI && wardrobeUI.isOpen()) ||
@@ -78,6 +179,7 @@ export function createInteractionSystem(
       }
 
       const isDialogueOpen = ui.isOpen();
+      const isDeliveryOpen = questSystem && questSystem.ui.isDeliveryModalOpen && questSystem.ui.isDeliveryModalOpen();
       const isRewardOpen = questSystem && questSystem.ui.isRewardModalOpen();
       const isInventoryOpen = inventoryUI && inventoryUI.isOpen();
       const isWardrobeOpen = wardrobeUI && wardrobeUI.isOpen();
@@ -91,6 +193,9 @@ export function createInteractionSystem(
       const currentSpace = spaceManager ? spaceManager.getCurrentSpace() : 'village';
       if (flowerManager && typeof flowerManager.setVisible === 'function') {
         flowerManager.setVisible(currentSpace === 'village');
+      }
+      if (deliveryEffect && typeof deliveryEffect.update === 'function') {
+        deliveryEffect.update(dt);
       }
       if (currentSpace === 'village') {
         for (const npc of npcs) {
@@ -109,6 +214,7 @@ export function createInteractionSystem(
       const canShowOverhead =
         currentSpace === 'village' &&
         !isDialogueOpen &&
+        !isDeliveryOpen &&
         !isRewardOpen &&
         !isTransitioning &&
         !isInventoryOpen &&
@@ -129,8 +235,8 @@ export function createInteractionSystem(
             : 'talk'
       });
 
-      // 전환 중이거나 인벤토리/옷장/화장대/월드맵이 열려 있는 경우 프롬프트 숨김 및 입력 스킵
-      if (isTransitioning || isInventoryOpen || isWardrobeOpen || isVanityOpen || isWorldMapOpen) {
+      // 전환 중이거나 전달 확인창/인벤토리/옷장/화장대/월드맵이 열려 있는 경우 프롬프트 숨김 및 입력 스킵
+      if (isTransitioning || isDeliveryOpen || isInventoryOpen || isWardrobeOpen || isVanityOpen || isWorldMapOpen) {
         ui.hidePrompt();
         return;
       }
@@ -291,6 +397,10 @@ export function createInteractionSystem(
                   hasSeenFoxCompletion,
                   foxQuestState: questSystem ? questSystem.getState() : null,
                   foxCollectedCount: questSystem ? questSystem.getCollectedCount() : 0,
+                  foxInventoryCount:
+                    questSystem && typeof questSystem.getInventoryCount === 'function'
+                      ? questSystem.getInventoryCount('pink_flower')
+                      : 0,
                   foxTargetCount: questSystem ? questSystem.getTargetCount() : 3
                 });
 
@@ -304,7 +414,7 @@ export function createInteractionSystem(
 
                     if (result.completed && questSystem) {
                       if (typeof questSystem.onNpcDialogueCompleted === 'function') {
-                        questSystem.onNpcDialogueCompleted(npcId, result, { isNight, player });
+                        questSystem.onNpcDialogueCompleted(npcId, result, { isNight, player, npc });
                       }
                       if (saveSystem && typeof saveSystem.save === 'function') {
                         saveSystem.save();

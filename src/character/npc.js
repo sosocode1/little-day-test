@@ -194,6 +194,7 @@ export function createNPC(type, x, z, initialRotY = 0, overrides = {}) {
 
   let time = Math.random() * 10;
   let currentRotY = initialRotY;
+  let joyTimer = 0;
 
   return {
     id: overrides.id || data.id || type,
@@ -207,11 +208,27 @@ export function createNPC(type, x, z, initialRotY = 0, overrides = {}) {
     headHeight: overrides.headHeight ?? builderSpec.headHeight ?? 1.8,
     talkable: data.talkable !== false,
 
+    // 아이템 전달 등 기쁜 순간의 짧은 점프/반응 애니메이션 (기존 3D 모델 유지)
+    playJoyReaction(duration = 2.2) {
+      joyTimer = Math.max(joyTimer, duration);
+    },
+
     // 플레이어를 바라보는 회전 및 아이들 애니메이션
     update(dt, playerPos = null, isTalking = false) {
       time += dt;
 
       builderSpec.animate(model, time, isTalking);
+
+      if (joyTimer > 0) {
+        joyTimer = Math.max(0, joyTimer - dt);
+        const hop = Math.abs(Math.sin(time * 9.5)) * 0.22 * Math.min(1, joyTimer * 1.4);
+        model.root.position.y = hop;
+        if (model.tail) {
+          model.tail.rotation.y = Math.sin(time * 12) * 0.52;
+        }
+      } else if (model.root.position.y !== 0) {
+        model.root.position.y = 0;
+      }
 
       // 대화 중이거나 플레이어가 근접하면 플레이어 쪽으로 몸을 살짝 회전
       if (playerPos) {

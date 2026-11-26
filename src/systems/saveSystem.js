@@ -243,11 +243,22 @@ export function createSaveSystem({
         inventorySystem.restore(data.inventory);
       }
 
-      // 3. 퀘스트 상태 복원
+      // 3. 퀘스트 상태 복원 및 수집품 인벤토리 수량 일관성 동기화 (전달 전 상태에서만 꽃 수량 보정)
       if (data.quest && questSystem && typeof questSystem.restore === 'function') {
         questSystem.restore(data.quest);
-        if (flowerManager && typeof flowerManager.syncCollected === 'function' && typeof questSystem.getCollectedFlowerIds === 'function') {
-          flowerManager.syncCollected(questSystem.getCollectedFlowerIds());
+        const restoredFlowerIds =
+          typeof questSystem.getCollectedFlowerIds === 'function' ? questSystem.getCollectedFlowerIds() : [];
+        if (flowerManager && typeof flowerManager.syncCollected === 'function') {
+          flowerManager.syncCollected(restoredFlowerIds);
+        }
+        const qState = typeof questSystem.getState === 'function' ? questSystem.getState() : null;
+        if (
+          inventorySystem &&
+          typeof inventorySystem.syncCollectibleSources === 'function' &&
+          restoredFlowerIds.length > 0 &&
+          (qState === 'IN_PROGRESS' || qState === 'READY_TO_COMPLETE')
+        ) {
+          inventorySystem.syncCollectibleSources('pink_flower', restoredFlowerIds);
         }
       }
 
